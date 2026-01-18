@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Luffy App V5</title>
+    <title>Luffy Smart App</title>
     <style>
         body {
             font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
@@ -70,7 +70,6 @@
         body.feeding-time .status-bar { background: #2e7d32; animation: pulse 2s infinite; }
         @keyframes pulse { 0% { transform: scale(1); } 50% { transform: scale(1.02); } 100% { transform: scale(1); } }
 
-        /* Relógios Dinâmicos */
         .dynamic-schedule {
             margin-top: 20px;
             display: grid;
@@ -88,13 +87,17 @@
         input[type="time"].past { color: #aaa; background: #f4f4f4; }
         input[type="time"].next { border: 2px solid #2e7d32; color: #2e7d32; }
 
+        .sync-indicator {
+            font-size: 0.7rem; color: #999; margin-top: 10px; font-style: italic;
+        }
+
         .footer { margin-top: 25px; font-size: 0.75rem; color: #aaa; line-height: 1.4; }
     </style>
 </head>
 <body>
 
     <div class="card">
-        <h1>Luffy Smart App 🐾</h1>
+        <h1>Luffy Family ☁️</h1>
         <h4>Royal Canin Giant Puppy (Meta 75kg)</h4>
 
         <div class="info-row">
@@ -119,73 +122,130 @@
             </div>
         </div>
 
-        <div id="statusBar" class="status-bar">Carregando...</div>
+        <div id="statusBar" class="status-bar">Conectando...</div>
 
         <div id="clockContainer" class="dynamic-schedule"></div>
+        <div id="syncStatus" class="sync-indicator">Sincronizando com a família...</div>
 
         <div class="footer">
-            Os horários ficam salvos no seu navegador.<br>
-            À meia-noite, a rotina reseta automaticamente.
+            Os horários são compartilhados com todos.<br>
+            Alterações salvam automaticamente na nuvem.
         </div>
     </div>
 
     <script>
+        // --- CONFIGURAÇÃO ---
         const DATA_NASCIMENTO = new Date(2025, 9, 31); // 31/10/2025
-        const STORAGE_KEY = 'luffy_schedule_data_v5';
+        
+        // ******************************************************
+        // COLOQUE SEU PANTRY ID DENTRO DAS ASPAS ABAIXO:
+        const PANTRY_ID = "c42cdca2-f5c9-4b78-b7ba-527236418398"; 
+        // ******************************************************
 
+        const BASKET_NAME = "LuffySchedule";
+        const API_URL = `https://getpantry.cloud/apiv1/pantry/${PANTRY_ID}/basket/${BASKET_NAME}`;
+
+        // --- INICIALIZAÇÃO ---
         window.onload = function() {
-            calcularDieta(); // Calcula gramas
-            
-            // Tenta carregar dados salvos. Se falhar, reseta pro padrão.
-            if (!carregarDadosSalvos()) {
-                resetarHorarios(false); // false = não foi ação manual, é load inicial
+            if (PANTRY_ID === "c42cdca2-f5c9-4b78-b7ba-527236418398") {
+                alert("ATENÇÃO: Você precisa colocar o ID do Pantry no código!");
             }
+            calcularDieta(); 
+            carregarDaNuvem(); // Primeira carga
             
-            setInterval(verificarStatus, 60000); // Check a cada minuto
+            // Loop de Verificação (Sincroniza e checa status a cada 30s)
+            setInterval(() => {
+                carregarDaNuvem(); 
+                verificarStatus();
+            }, 30000);
+
+            // Relógio local rápido para a interface não parecer travada
+            setInterval(verificarStatus, 60000); 
         };
 
-        // --- SISTEMA DE MEMÓRIA (LOCALSTORAGE) ---
-        function salvarDados() {
+        // --- SISTEMA DE NUVEM (PANTRY) ---
+        function salvarNaNuvem() {
             const inputs = document.querySelectorAll('input[type="time"]');
             const horarios = Array.from(inputs).map(i => i.value);
             const numRefeicoes = document.getElementById('refeicoesSelect').value;
-            const hoje = new Date().toLocaleDateString(); // "18/01/2026"
+            const hoje = new Date().toLocaleDateString(); 
 
             const dados = {
                 data: hoje,
                 modo: numRefeicoes,
-                times: horarios
+                times: horarios,
+                autor: "AppUser"
             };
             
-            localStorage.setItem(STORAGE_KEY, JSON.stringify(dados));
+            document.getElementById('syncStatus').innerText = "Salvando na nuvem...";
+            
+            fetch(API_URL, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify(dados)
+            })
+            .then(() => {
+                document.getElementById('syncStatus').innerText = "✅ Salvo e Sincronizado!";
+                setTimeout(() => { document.getElementById('syncStatus').innerText = ""; }, 3000);
+            })
+            .catch(err => {
+                console.error(err);
+                document.getElementById('syncStatus').innerText = "❌ Erro ao salvar (sem internet?)";
+            });
         }
 
-        function carregarDadosSalvos() {
-            const salvo = localStorage.getItem(STORAGE_KEY);
-            if (!salvo) return false;
-
-            const dados = JSON.parse(salvo);
-            const hoje = new Date().toLocaleDateString();
-
-            // Se a data salva não for hoje, descarta (retorna false para resetar)
-            if (dados.data !== hoje) return false;
-
-            // Restaura o Dropdown
-            document.getElementById('refeicoesSelect').value = dados.modo;
-            
-            // Recria os inputs visuais
-            gerarInputsVisuais(parseInt(dados.modo));
-
-            // Preenche com os horários salvos
-            const inputs = document.querySelectorAll('input[type="time"]');
-            dados.times.forEach((time, index) => {
-                if (inputs[index]) inputs[index].value = time;
+        function carregarDaNuvem() {
+            fetch(API_URL)
+            .then(response => response.json())
+            .then(dados => {
+                const hoje = new Date().toLocaleDateString();
+                
+                // Se os dados da nuvem forem de hoje, usamos eles
+                if (dados.data === hoje) {
+                    aplicarDados(dados);
+                } else {
+                    // Se os dados são velhos, não faz nada (mantém padrão ou reseta se for o primeiro load)
+                    // O reset acontece se não tivermos inputs ainda
+                    if(document.getElementById('clockContainer').innerHTML === "") {
+                        resetarHorarios(false); 
+                    }
+                }
+            })
+            .catch(() => {
+                // Se der erro (ex: primeira vez que usa e a gaveta tá vazia), inicia padrão
+                if(document.getElementById('clockContainer').innerHTML === "") {
+                    resetarHorarios(false);
+                }
             });
+        }
 
-            // Atualiza dieta e status visual
-            calcularDieta();
-            verificarStatus();
-            return true;
+        function aplicarDados(dados) {
+            // Evita reconstruir se nada mudou (para não tirar o foco do usuário)
+            const currentMode = document.getElementById('refeicoesSelect').value;
+            
+            if (currentMode !== dados.modo) {
+                document.getElementById('refeicoesSelect').value = dados.modo;
+                gerarInputsVisuais(parseInt(dados.modo));
+                calcularDieta(); // Recalcula gramas
+            } else if (document.getElementById('clockContainer').innerHTML === "") {
+                 gerarInputsVisuais(parseInt(dados.modo));
+            }
+
+            const inputs = document.querySelectorAll('input[type="time"]');
+            let mudouAlgo = false;
+            
+            dados.times.forEach((time, index) => {
+                if (inputs[index] && inputs[index].value !== time) {
+                    // Só atualiza se o valor for diferente (para não atrapalhar edição)
+                    // E se o elemento não estiver focado
+                    if (document.activeElement !== inputs[index]) {
+                         inputs[index].value = time;
+                         mudouAlgo = true;
+                    }
+                }
+            });
+            
+            if (mudouAlgo) verificarStatus();
         }
 
         // --- LÓGICA DE HORÁRIOS ---
@@ -206,10 +266,9 @@
                 input.type = 'time';
                 input.id = `time-${i}`;
                 
-                // Evento: Recalcula cascata e SALVA
                 input.onchange = function() { 
                     recalcularCascata(i, numRefeicoes, intervalo);
-                    salvarDados(); // Salva a alteração
+                    salvarNaNuvem(); // Agora salva na nuvem!
                 };
 
                 div.appendChild(label);
@@ -234,7 +293,7 @@
 
             calcularDieta();
             verificarStatus();
-            salvarDados(); // Salva o novo padrão
+            if (isManualChange) salvarNaNuvem();
         }
 
         function recalcularCascata(indexMudado, totalRefeicoes, intervalo) {
@@ -266,12 +325,12 @@
             let alimentarAgora = false;
 
             inputs.forEach(input => {
+                if (!input.value) return;
                 let [h, m] = input.value.split(':').map(Number);
                 let minutosRef = (h * 60) + m;
 
                 input.classList.remove('past', 'next');
 
-                // Janela: 15 min antes a 45 min depois
                 if (minutosAgora >= (minutosRef - 15) && minutosAgora <= (minutosRef + 45)) {
                     alimentarAgora = true;
                     input.classList.add('next');
@@ -333,4 +392,3 @@
 
 </body>
 </html>
-
