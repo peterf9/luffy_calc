@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Luffy Smart App</title>
+    <title>Luffy App V5</title>
     <style>
         body {
             font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
@@ -27,28 +27,17 @@
             position: relative;
         }
         
-        /* Estado de Alerta (Hora de Comer) */
-        body.feeding-time {
-            background-color: #e8f5e9;
-        }
-        body.feeding-time .card {
-            border-top-color: #2e7d32;
-            box-shadow: 0 0 30px rgba(76, 175, 80, 0.4);
-        }
+        /* Estado de Alerta */
+        body.feeding-time { background-color: #e8f5e9; }
+        body.feeding-time .card { border-top-color: #2e7d32; box-shadow: 0 0 30px rgba(76, 175, 80, 0.4); }
 
         h1 { color: #333; margin: 0; font-size: 1.8rem; letter-spacing: -0.5px; }
         h4 { color: #666; font-weight: normal; margin-top: 5px; margin-bottom: 20px; font-size: 0.9rem; }
         
         .info-row {
-            display: flex;
-            justify-content: space-between;
-            margin-bottom: 10px;
-            font-size: 0.95rem;
-            color: #555;
-            background: #f8f9fa;
-            padding: 12px;
-            border-radius: 10px;
-            border: 1px solid #eee;
+            display: flex; justify-content: space-between; margin-bottom: 10px;
+            font-size: 0.95rem; color: #555; background: #f8f9fa;
+            padding: 12px; border-radius: 10px; border: 1px solid #eee;
         }
 
         .select-container { margin: 20px 0; text-align: left; }
@@ -59,19 +48,11 @@
         }
 
         .result-box {
-            background-color: #e3f2fd;
-            color: #0d47a1;
-            padding: 20px;
-            border-radius: 15px;
-            box-shadow: inset 0 0 10px rgba(0,0,0,0.02);
+            background-color: #e3f2fd; color: #0d47a1; padding: 20px;
+            border-radius: 15px; box-shadow: inset 0 0 10px rgba(0,0,0,0.02);
             transition: background-color 0.5s, color 0.5s;
         }
-
-        /* Estilo para quando for hora de comer */
-        body.feeding-time .result-box {
-            background-color: #c8e6c9; 
-            color: #1b5e20;
-        }
+        body.feeding-time .result-box { background-color: #c8e6c9; color: #1b5e20; }
         
         .big-number { font-size: 3.5rem; font-weight: 800; color: #d32f2f; line-height: 1; margin: 10px 0; }
         body.feeding-time .big-number { color: #2e7d32; }
@@ -83,45 +64,37 @@
         }
 
         .status-bar {
+            margin-top: 20px; padding: 15px; background: #333; color: white;
+            border-radius: 10px; font-size: 1rem; font-weight: bold;
+        }
+        body.feeding-time .status-bar { background: #2e7d32; animation: pulse 2s infinite; }
+        @keyframes pulse { 0% { transform: scale(1); } 50% { transform: scale(1.02); } 100% { transform: scale(1); } }
+
+        /* Relógios Dinâmicos */
+        .dynamic-schedule {
             margin-top: 20px;
-            padding: 15px;
-            background: #333;
-            color: white;
-            border-radius: 10px;
-            font-size: 1rem;
-            font-weight: bold;
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(70px, 1fr));
+            gap: 10px;
         }
-        body.feeding-time .status-bar {
-            background: #2e7d32;
-            animation: pulse 2s infinite;
+        .time-input-group { display: flex; flex-direction: column; align-items: center; }
+        .time-label { font-size: 0.75rem; color: #888; margin-bottom: 4px; text-transform: uppercase; }
+        input[type="time"] {
+            font-family: 'Segoe UI', sans-serif; font-size: 1.1rem; padding: 5px;
+            border: 1px solid #ddd; border-radius: 8px; background: white; color: #333;
+            width: 100%; text-align: center; cursor: pointer; font-weight: bold;
         }
+        input[type="time"]:focus { border-color: #d32f2f; outline: none; background: #fffafa; }
+        input[type="time"].past { color: #aaa; background: #f4f4f4; }
+        input[type="time"].next { border: 2px solid #2e7d32; color: #2e7d32; }
 
-        @keyframes pulse {
-            0% { transform: scale(1); }
-            50% { transform: scale(1.02); }
-            100% { transform: scale(1); }
-        }
-
-        .schedule-times {
-            display: flex; justify-content: space-between; margin-top: 15px;
-            font-size: 0.9rem; color: #777;
-        }
-        .schedule-times span.active {
-            color: #2e7d32; font-weight: bold; text-decoration: underline;
-        }
-        
-        .footer {
-            margin-top: 25px;
-            font-size: 0.75rem;
-            color: #aaa;
-            line-height: 1.4;
-        }
+        .footer { margin-top: 25px; font-size: 0.75rem; color: #aaa; line-height: 1.4; }
     </style>
 </head>
 <body>
 
     <div class="card">
-        <h1>Luffy Smart App 🐾</h1>
+        <h1>Luffy Dinâmico 🐾</h1>
         <h4>Royal Canin Giant Puppy (Meta 75kg)</h4>
 
         <div class="info-row">
@@ -131,7 +104,7 @@
 
         <div class="select-container">
             <label for="refeicoesSelect">Rotina de hoje:</label>
-            <select id="refeicoesSelect" onchange="atualizarGeral()">
+            <select id="refeicoesSelect" onchange="resetarHorarios(true)">
                 <option value="4" selected>4 Refeições (Ideal)</option>
                 <option value="3">3 Refeições (Dias corridos)</option>
             </select>
@@ -146,27 +119,181 @@
             </div>
         </div>
 
-        <div id="statusBar" class="status-bar">
-            Carregando status...
-        </div>
+        <div id="statusBar" class="status-bar">Carregando...</div>
 
-        <div id="scheduleDisplay" class="schedule-times">
-            </div>
+        <div id="clockContainer" class="dynamic-schedule"></div>
 
         <div class="footer">
-            Dica: Se a tela ficar VERDE, é hora de servir.<br>
-            Acompanhe o peso semanalmente.
+            Os horários ficam salvos no seu navegador.<br>
+            À meia-noite, a rotina reseta automaticamente.
         </div>
     </div>
 
     <script>
         const DATA_NASCIMENTO = new Date(2025, 9, 31); // 31/10/2025
-        
-        function atualizarGeral() {
-            calcularDieta();
-            verificarHorario();
+        const STORAGE_KEY = 'luffy_schedule_data_v5';
+
+        window.onload = function() {
+            calcularDieta(); // Calcula gramas
+            
+            // Tenta carregar dados salvos. Se falhar, reseta pro padrão.
+            if (!carregarDadosSalvos()) {
+                resetarHorarios(false); // false = não foi ação manual, é load inicial
+            }
+            
+            setInterval(verificarStatus, 60000); // Check a cada minuto
+        };
+
+        // --- SISTEMA DE MEMÓRIA (LOCALSTORAGE) ---
+        function salvarDados() {
+            const inputs = document.querySelectorAll('input[type="time"]');
+            const horarios = Array.from(inputs).map(i => i.value);
+            const numRefeicoes = document.getElementById('refeicoesSelect').value;
+            const hoje = new Date().toLocaleDateString(); // "18/01/2026"
+
+            const dados = {
+                data: hoje,
+                modo: numRefeicoes,
+                times: horarios
+            };
+            
+            localStorage.setItem(STORAGE_KEY, JSON.stringify(dados));
         }
 
+        function carregarDadosSalvos() {
+            const salvo = localStorage.getItem(STORAGE_KEY);
+            if (!salvo) return false;
+
+            const dados = JSON.parse(salvo);
+            const hoje = new Date().toLocaleDateString();
+
+            // Se a data salva não for hoje, descarta (retorna false para resetar)
+            if (dados.data !== hoje) return false;
+
+            // Restaura o Dropdown
+            document.getElementById('refeicoesSelect').value = dados.modo;
+            
+            // Recria os inputs visuais
+            gerarInputsVisuais(parseInt(dados.modo));
+
+            // Preenche com os horários salvos
+            const inputs = document.querySelectorAll('input[type="time"]');
+            dados.times.forEach((time, index) => {
+                if (inputs[index]) inputs[index].value = time;
+            });
+
+            // Atualiza dieta e status visual
+            calcularDieta();
+            verificarStatus();
+            return true;
+        }
+
+        // --- LÓGICA DE HORÁRIOS ---
+        function gerarInputsVisuais(numRefeicoes) {
+            const container = document.getElementById('clockContainer');
+            container.innerHTML = "";
+            let intervalo = (numRefeicoes === 4) ? 4 : 6;
+
+            for (let i = 0; i < numRefeicoes; i++) {
+                let div = document.createElement('div');
+                div.className = 'time-input-group';
+                
+                let label = document.createElement('span');
+                label.className = 'time-label';
+                label.innerText = `Refeição ${i+1}`;
+                
+                let input = document.createElement('input');
+                input.type = 'time';
+                input.id = `time-${i}`;
+                
+                // Evento: Recalcula cascata e SALVA
+                input.onchange = function() { 
+                    recalcularCascata(i, numRefeicoes, intervalo);
+                    salvarDados(); // Salva a alteração
+                };
+
+                div.appendChild(label);
+                div.appendChild(input);
+                container.appendChild(div);
+            }
+        }
+
+        function resetarHorarios(isManualChange) {
+            const numRefeicoes = parseInt(document.getElementById('refeicoesSelect').value);
+            gerarInputsVisuais(numRefeicoes);
+
+            let horaBase = 7; 
+            let intervalo = (numRefeicoes === 4) ? 4 : 6;
+            const inputs = document.querySelectorAll('input[type="time"]');
+
+            inputs.forEach((input, i) => {
+                let h = horaBase + (i * intervalo);
+                if (h >= 24) h -= 24;
+                input.value = `${h.toString().padStart(2, '0')}:00`;
+            });
+
+            calcularDieta();
+            verificarStatus();
+            salvarDados(); // Salva o novo padrão
+        }
+
+        function recalcularCascata(indexMudado, totalRefeicoes, intervalo) {
+            let inputMudado = document.getElementById(`time-${indexMudado}`);
+            if(!inputMudado.value) return;
+
+            let [h, m] = inputMudado.value.split(':').map(Number);
+            let minutosBase = (h * 60) + m;
+
+            for (let i = indexMudado + 1; i < totalRefeicoes; i++) {
+                let inputProximo = document.getElementById(`time-${i}`);
+                minutosBase += (intervalo * 60);
+                
+                let novosMinutos = minutosBase % 1440;
+                let novaHora = Math.floor(novosMinutos / 60);
+                let novoMin = novosMinutos % 60;
+
+                inputProximo.value = `${novaHora.toString().padStart(2, '0')}:${novoMin.toString().padStart(2, '0')}`;
+            }
+            verificarStatus();
+        }
+
+        function verificarStatus() {
+            const agora = new Date();
+            const minutosAgora = (agora.getHours() * 60) + agora.getMinutes();
+            const inputs = document.querySelectorAll('input[type="time"]');
+            
+            let proximaRefeicao = null;
+            let alimentarAgora = false;
+
+            inputs.forEach(input => {
+                let [h, m] = input.value.split(':').map(Number);
+                let minutosRef = (h * 60) + m;
+
+                input.classList.remove('past', 'next');
+
+                // Janela: 15 min antes a 45 min depois
+                if (minutosAgora >= (minutosRef - 15) && minutosAgora <= (minutosRef + 45)) {
+                    alimentarAgora = true;
+                    input.classList.add('next');
+                } else if (minutosAgora > minutosRef + 45) {
+                    input.classList.add('past');
+                } else if (proximaRefeicao === null) {
+                    proximaRefeicao = input.value;
+                    input.classList.add('next');
+                }
+            });
+
+            const statusDiv = document.getElementById('statusBar');
+            if (alimentarAgora) {
+                document.body.classList.add('feeding-time');
+                statusDiv.innerText = `🍖 HORA DE COMER!`;
+            } else {
+                document.body.classList.remove('feeding-time');
+                statusDiv.innerText = proximaRefeicao ? `⏳ Próxima: ${proximaRefeicao}` : `✅ Tudo pronto por hoje!`;
+            }
+        }
+
+        // --- CÁLCULO DE RAÇÃO ---
         function calcularDieta() {
             const hoje = new Date();
             hoje.setHours(0,0,0,0); 
@@ -202,45 +329,6 @@
             document.getElementById('perMeal').innerText = porRefeicao;
             document.getElementById('numRefeicoesDisplay').innerText = numRefeicoes;
         }
-
-        function verificarHorario() {
-            const agora = new Date();
-            const horaAtual = agora.getHours();
-            const numRefeicoes = parseInt(document.getElementById('refeicoesSelect').value);
-            
-            let horarios = (numRefeicoes === 4) ? [7, 11, 15, 19] : [7, 13, 19];
-            
-            let proxima = horarios.find(h => h > horaAtual);
-            if (!proxima && horaAtual >= horarios[horarios.length-1]) proxima = horarios[0]; 
-
-            let horaDeComer = horarios.includes(horaAtual);
-
-            const statusDiv = document.getElementById('statusBar');
-            const body = document.body;
-
-            if (horaDeComer) {
-                body.classList.add('feeding-time');
-                statusDiv.innerText = `🍖 HORA DE COMER! (${horaAtual}h)`;
-            } else {
-                body.classList.remove('feeding-time');
-                let falta = proxima - horaAtual;
-                if (falta < 0) falta += 24; 
-                statusDiv.innerText = `⏳ Próxima refeição: ${proxima}:00 (Faltam ${falta}h)`;
-            }
-
-            let htmlHorarios = "";
-            horarios.forEach(h => {
-                let classe = (h === proxima) ? "active" : "";
-                if (h === horaAtual) classe = "active";
-                htmlHorarios += `<span class="${classe}">${h}h</span>`;
-            });
-            document.getElementById('scheduleDisplay').innerHTML = htmlHorarios;
-        }
-
-        window.onload = function() {
-            atualizarGeral();
-            setInterval(verificarHorario, 60000); // Atualiza a cada 1 minuto
-        };
     </script>
 
 </body>
