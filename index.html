@@ -98,7 +98,7 @@
 
     <div class="card">
         <h1>Luffy Family ☁️</h1>
-        <h4>Royal Canin Giant Puppy (Meta 75kg)</h4>
+        <h4>Royal Canin Giant Puppy (Meta 75 kg)</h4>
 
         <div class="info-row">
             <span>Idade:</span>
@@ -146,6 +146,8 @@
         const API_URL = `https://getpantry.cloud/apiv1/pantry/${PANTRY_ID}/basket/${BASKET_NAME}`;
 
         // --- INICIALIZAÇÃO ---
+        let notificacaoSolicitada = false;
+
         window.onload = function() {
             calcularDieta(); 
             carregarDaNuvem(); // Primeira carga
@@ -156,7 +158,7 @@
                 verificarStatus();
             }, 30000);
 
-            // Relógio local rápido para a interface não parecer travada
+            // Relógio local para a interface não parecer travada
             setInterval(verificarStatus, 60000); 
         };
 
@@ -319,12 +321,14 @@
             const inputs = document.querySelectorAll('input[type="time"]');
             
             let proximaRefeicao = null;
+            let minutosAteProxima = null;
             let alimentarAgora = false;
 
             inputs.forEach(input => {
                 if (!input.value) return;
                 let [h, m] = input.value.split(':').map(Number);
                 let minutosRef = (h * 60) + m;
+                let minutosAte = (minutosRef - minutosAgora + 1440) % 1440;
 
                 input.classList.remove('past', 'next');
 
@@ -333,8 +337,9 @@
                     input.classList.add('next');
                 } else if (minutosAgora > minutosRef + 45) {
                     input.classList.add('past');
-                } else if (proximaRefeicao === null) {
+                } else if (minutosAte > 0 && (minutosAteProxima === null || minutosAte < minutosAteProxima)) {
                     proximaRefeicao = input.value;
+                    minutosAteProxima = minutosAte;
                     input.classList.add('next');
                 }
             });
@@ -345,7 +350,16 @@
                 statusDiv.innerText = `🍖 HORA DE COMER!`;
             } else {
                 document.body.classList.remove('feeding-time');
-                statusDiv.innerText = proximaRefeicao ? `⏳ Próxima: ${proximaRefeicao}` : `✅ Tudo pronto por hoje!`;
+                if (proximaRefeicao) {
+                    const eAmanha = minutosAteProxima !== null && (minutosAgora + minutosAteProxima) >= 1440;
+                    statusDiv.innerText = eAmanha ? `⏳ Próxima amanhã: ${proximaRefeicao}` : `⏳ Próxima: ${proximaRefeicao}`;
+                } else {
+                    statusDiv.innerText = `✅ Tudo pronto por hoje!`;
+                }
+            }
+
+            if (proximaRefeicao && minutosAteProxima !== null) {
+                notificarAntesDaProxima(proximaRefeicao, minutosAteProxima);
             }
         }
 
@@ -353,6 +367,13 @@
         function calcularDieta() {
             const hoje = new Date();
             hoje.setHours(0,0,0,0); 
+            if (DATA_NASCIMENTO > hoje) {
+                document.getElementById('idadeDisplay').innerText = "Data de nascimento inválida";
+                document.getElementById('totalGrams').innerText = "-- g";
+                document.getElementById('perMeal').innerText = "--";
+                document.getElementById('numRefeicoesDisplay').innerText = "--";
+                return;
+            }
 
             let meses = (hoje.getFullYear() - DATA_NASCIMENTO.getFullYear()) * 12;
             meses -= DATA_NASCIMENTO.getMonth();
@@ -384,6 +405,30 @@
             document.getElementById('totalGrams').innerText = totalFinal + " g";
             document.getElementById('perMeal').innerText = porRefeicao;
             document.getElementById('numRefeicoesDisplay').innerText = numRefeicoes;
+        }
+
+        function notificarAntesDaProxima(horario, minutosAteProxima) {
+            if (!("Notification" in window)) return;
+            if (Notification.permission === "default") {
+                if (notificacaoSolicitada) return;
+                notificacaoSolicitada = true;
+                Notification.requestPermission().finally(() => {
+                    notificacaoSolicitada = false;
+                });
+            }
+            if (Notification.permission !== "granted") return;
+            if (minutosAteProxima > 15 || minutosAteProxima <= 0) return;
+
+            const hoje = new Date().toLocaleDateString();
+            const chave = `${hoje}-${horario}`;
+            const ultimaNotificacao = localStorage.getItem('ultimaNotificacaoRefeicao');
+            if (ultimaNotificacao === chave) return;
+
+            new Notification("Luffy Family", {
+                body: `Faltam ${minutosAteProxima} min para a próxima refeição (${horario}).`,
+                icon: "data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='64' height='64'%3E%3Ctext x='0' y='48' font-size='48'%3E%F0%9F%8D%96%3C/text%3E%3C/svg%3E"
+            });
+            localStorage.setItem('ultimaNotificacaoRefeicao', chave);
         }
     </script>
 
