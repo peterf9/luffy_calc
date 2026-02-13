@@ -47,15 +47,7 @@
             font-size: 1rem; background-color: white; outline: none;
         }
 
-        .result-box {
-            background-color: #e3f2fd; color: #0d47a1; padding: 15px;
-            border-radius: 15px; box-shadow: inset 0 0 10px rgba(0,0,0,0.02);
-            margin-bottom: 20px;
-        }
-        
-        .big-number { font-size: 2.5rem; font-weight: 800; color: #d32f2f; line-height: 1; margin: 5px 0; }
-        
-        /* CONTAINER DOS HORÁRIOS */
+        /* LINHA DE CADA REFEIÇÃO */
         .dynamic-schedule {
             margin-top: 10px;
             display: flex;
@@ -63,7 +55,6 @@
             gap: 12px;
         }
 
-        /* LINHA DE CADA REFEIÇÃO */
         .meal-row {
             display: flex;
             align-items: center;
@@ -79,13 +70,13 @@
         .meal-row.fed {
             background-color: #dcedc8; /* Verde Claro */
             border-color: #8bc34a;
-            transform: scale(0.98);
             opacity: 0.8;
         }
+        /* Risco na hora quando marcado */
         .meal-row.fed input[type="time"] {
-            background-color: transparent;
-            color: #33691e;
             text-decoration: line-through;
+            color: #558b2f;
+            background-color: transparent;
             border: none;
         }
 
@@ -114,6 +105,7 @@
         .status-bar {
             margin-top: 15px; padding: 10px; background: #333; color: white;
             border-radius: 8px; font-size: 0.9rem; font-weight: bold;
+            min-height: 20px; /* Garante altura mesmo sem texto */
         }
         
         .btn-notify {
@@ -151,7 +143,7 @@
         
         <div id="clockContainer" class="dynamic-schedule"></div>
 
-        <div id="statusBar" class="status-bar">Conectando...</div>
+        <div id="statusBar" class="status-bar">Iniciando...</div>
         
         <button id="btnNotify" class="btn-notify" onclick="ativarNotificacoes()">🔔 Ativar Notificações</button>
 
@@ -161,20 +153,32 @@
     <script>
         // --- CONFIGURAÇÃO ---
         const DATA_NASCIMENTO = new Date(2025, 9, 31); // 31/10/2025
+        
+        // ******************************************************
+        // SEU PANTRY ID (Verifique se está correto)
         const PANTRY_ID = "c42cdca2-f5c9-4b78-b7ba-527236418398"; 
+        // ******************************************************
+
         const BASKET_NAME = "LuffySchedule";
         const API_URL = `https://getpantry.cloud/apiv1/pantry/${PANTRY_ID}/basket/${BASKET_NAME}`;
 
-        let dadosGlobais = { times: [], checks: [] };
-
         window.onload = function() {
+            // 1. Inicializa interface localmente (SEM ESPERAR INTERNET)
+            // Isso evita o travamento na tela "Conectando"
+            if(document.getElementById('clockContainer').innerHTML === "") {
+                resetarHorarios(false); 
+            }
             calcularDieta(); 
+            verificarStatusVisual(); // Atualiza a barra preta imediatamente
+
+            // 2. Busca dados da nuvem em segundo plano
             carregarDaNuvem(); 
-            // Sincronização RÁPIDA (5 segundos) para segurança
-            setInterval(carregarDaNuvem, 5000);
-            setInterval(verificarStatusVisual, 60000); 
             
-            // Checar permissão de notificação visualmente
+            // 3. Loops de atualização
+            setInterval(carregarDaNuvem, 5000); // Sincroniza a cada 5s
+            setInterval(verificarStatusVisual, 60000); // Atualiza relógio local
+            
+            // Checar permissão de notificação
             if (Notification.permission === "granted") {
                 const btn = document.getElementById('btnNotify');
                 btn.innerText = "✅ Notificações Ativas";
@@ -196,7 +200,7 @@
                 data: hoje,
                 modo: numRefeicoes,
                 times: horarios,
-                checks: checados, // SALVA QUEM JÁ COMEU
+                checks: checados, 
                 autor: "AppUser"
             };
             
@@ -209,8 +213,12 @@
             })
             .then(() => {
                 document.getElementById('syncStatus').innerText = "Sincronizado";
+                setTimeout(() => { document.getElementById('syncStatus').innerText = ""; }, 2000);
             })
-            .catch(err => console.error("Erro save", err));
+            .catch(err => {
+                console.error("Erro save", err);
+                document.getElementById('syncStatus').innerText = "Offline (Tentando reconectar...)";
+            });
         }
 
         function carregarDaNuvem() {
@@ -218,24 +226,21 @@
             .then(res => res.json())
             .then(dados => {
                 const hoje = new Date().toLocaleDateString();
-                // Se for um novo dia, reseta tudo
-                if (dados.data !== hoje) {
-                    if(document.getElementById('clockContainer').innerHTML === "") resetarHorarios(false);
-                } else {
+                // Se os dados forem de hoje, aplica. Se for de ontem, ignora (mantém o reset local)
+                if (dados.data === hoje) {
                     aplicarDados(dados);
                 }
             })
             .catch(err => {
-                if(document.getElementById('clockContainer').innerHTML === "") resetarHorarios(false);
+                console.log("Erro ao carregar ou gaveta vazia (primeiro uso)");
+                // Não faz nada drástico, mantém a versão local funcionando
             });
         }
 
         function aplicarDados(dados) {
-            dadosGlobais = dados; // Guarda para uso local
-
-            // Se mudou o modo (3 ou 4 refeições), reconstrói a tela
+            // Se mudou o modo (3 ou 4 refeições) via nuvem
             const currentMode = document.getElementById('refeicoesSelect').value;
-            if (currentMode !== dados.modo || document.getElementById('clockContainer').innerHTML === "") {
+            if (currentMode !== dados.modo) {
                 document.getElementById('refeicoesSelect').value = dados.modo;
                 gerarInputsVisuais(parseInt(dados.modo));
                 calcularDieta();
@@ -245,27 +250,27 @@
             const inputsCheck = document.querySelectorAll('input[type="checkbox"]');
             const rows = document.querySelectorAll('.meal-row');
 
-            // Atualiza valores se não estiver focado (para não atrapalhar digitação)
+            // Atualiza horários
             dados.times.forEach((time, i) => {
                 if (inputsTime[i] && document.activeElement !== inputsTime[i] && inputsTime[i].value !== time) {
                     inputsTime[i].value = time;
                 }
             });
 
-            // ATUALIZA OS CHECKS E CORES (Segurança Visual)
+            // Atualiza Checks e Cores
             if (dados.checks) {
                 dados.checks.forEach((isChecked, i) => {
                     if (inputsCheck[i]) {
-                        inputsCheck[i].checked = isChecked;
-                        // Muda a cor da linha inteira
-                        if (isChecked) {
-                            rows[i].classList.add('fed');
-                        } else {
-                            rows[i].classList.remove('fed');
+                        // Só atualiza se mudou o estado
+                        if (inputsCheck[i].checked !== isChecked) {
+                            inputsCheck[i].checked = isChecked;
+                            if (isChecked) rows[i].classList.add('fed');
+                            else rows[i].classList.remove('fed');
                         }
                     }
                 });
             }
+            // Chama a verificação visual para atualizar a barra preta
             verificarStatusVisual();
         }
 
@@ -276,16 +281,13 @@
             let intervalo = (numRefeicoes === 4) ? 4 : 6;
 
             for (let i = 0; i < numRefeicoes; i++) {
-                // Cria a linha (Row)
                 let row = document.createElement('div');
                 row.className = 'meal-row';
                 
-                // Label (1, 2, 3...)
                 let label = document.createElement('div');
                 label.className = 'time-label';
                 label.innerText = `#${i+1}`;
                 
-                // Input de Hora
                 let input = document.createElement('input');
                 input.type = 'time';
                 input.id = `time-${i}`;
@@ -294,7 +296,6 @@
                     salvarNaNuvem();
                 };
 
-                // Checkbox de "Dar Baixa"
                 let checkContainer = document.createElement('div');
                 checkContainer.className = 'check-container';
                 let check = document.createElement('input');
@@ -302,14 +303,13 @@
                 check.className = 'check-btn';
                 check.id = `check-${i}`;
                 check.onchange = function() {
-                    salvarNaNuvem(); // Salva estado imediatamente
-                    // Feedback visual imediato
                     if(this.checked) row.classList.add('fed');
                     else row.classList.remove('fed');
+                    salvarNaNuvem(); 
+                    verificarStatusVisual(); // Atualiza barra preta imediatamente
                 };
 
                 checkContainer.appendChild(check);
-                
                 row.appendChild(label);
                 row.appendChild(input);
                 row.appendChild(checkContainer);
@@ -332,6 +332,7 @@
             });
 
             calcularDieta();
+            verificarStatusVisual(); // Garante que a barra mostre algo
             if (isManualChange) salvarNaNuvem();
         }
 
@@ -378,53 +379,64 @@
             const minutosAgora = (agora.getHours() * 60) + agora.getMinutes();
             let proximaIndex = -1;
             let encontrouProxima = false;
+            let tudoComido = true;
 
-            // Encontra qual é a próxima refeição NÃO checada
+            // Encontra a próxima refeição pendente
             inputsTime.forEach((input, i) => {
-                if (encontrouProxima) return;
-                
-                // Se já comeu (check marcado), ignora
-                if (inputsCheck[i].checked) return;
-
-                let [h, m] = input.value.split(':').map(Number);
-                let minutosRef = (h * 60) + m;
-                
-                // Se ainda não passou muito do horário
-                if (minutosAgora < minutosRef + 60) {
-                    proximaIndex = i;
-                    encontrouProxima = true;
+                if (!inputsCheck[i].checked) {
+                    tudoComido = false;
+                    if (!encontrouProxima) {
+                        let [h, m] = input.value.split(':').map(Number);
+                        let minutosRef = (h * 60) + m;
+                        // Considera próxima se ainda não passou 60 min do horário
+                        if (minutosAgora < minutosRef + 60) {
+                            proximaIndex = i;
+                            encontrouProxima = true;
+                        }
+                    }
                 }
             });
 
             const statusBar = document.getElementById('statusBar');
             
+            if (tudoComido) {
+                document.body.classList.remove('feeding-time');
+                statusBar.innerText = "✅ Dia concluído! Luffy alimentado.";
+                return;
+            }
+
             if (proximaIndex !== -1) {
                 const horaProx = inputsTime[proximaIndex].value;
                 let [h, m] = horaProx.split(':').map(Number);
                 let minutosRef = (h * 60) + m;
                 
-                // Verifica se é hora de comer (Janela de -15 a +30 min)
+                // Janela de Alimentação (-15 min até +30 min)
                 if (minutosAgora >= (minutosRef - 15) && minutosAgora <= (minutosRef + 30)) {
                     document.body.classList.add('feeding-time');
                     statusBar.innerText = `🍖 HORA DE COMER! (${horaProx})`;
                     tocarNotificacao(`Hora da refeição (${horaProx})!`);
                 } else {
                     document.body.classList.remove('feeding-time');
-                    statusBar.innerText = `⏳ Próxima: ${horaProx}`;
+                    // Calcula tempo restante
+                    let diff = minutosRef - minutosAgora;
+                    if (diff < 0) diff += 1440;
+                    
+                    let horasFalta = Math.floor(diff / 60);
+                    let minFalta = diff % 60;
+                    
+                    if (horasFalta > 0) statusBar.innerText = `⏳ Próxima: ${horaProx} (falta ${horasFalta}h ${minFalta}m)`;
+                    else statusBar.innerText = `⏳ Próxima: ${horaProx} (falta ${minFalta} min)`;
                 }
             } else {
-                document.body.classList.remove('feeding-time');
-                statusBar.innerText = "✅ Dia concluído!";
+                statusBar.innerText = "Aguardando próximo dia...";
             }
         }
 
         function tocarNotificacao(texto) {
             if (Notification.permission !== "granted") return;
-            
             const agora = new Date();
-            // Cria uma chave única por hora (ex: 18-02-2026-14) para não floodar
             const chave = `notif-${agora.getDate()}-${agora.getHours()}`;
-            if (sessionStorage.getItem(chave)) return;
+            if (sessionStorage.getItem(chave)) return; // Evita repetição na mesma hora
 
             try {
                 new Notification("Luffy App", { 
@@ -462,7 +474,6 @@
             const numRefeicoes = parseInt(document.getElementById('refeicoesSelect').value);
             const totalFinal = Math.round(totalDiario);
             document.getElementById('totalGrams').innerText = totalFinal + " g";
-            document.getElementById('perMeal').innerText = Math.round(totalFinal / numRefeicoes);
         }
     </script>
 
