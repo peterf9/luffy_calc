@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Luffy Vet Care</title>
+    <title>Luffy Family App</title>
     <style>
         body {
             font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
@@ -27,7 +27,6 @@
             position: relative;
         }
         
-        /* Estado de Alerta */
         body.feeding-time { background-color: #e8f5e9; }
         body.feeding-time .card { border-top-color: #2e7d32; box-shadow: 0 0 30px rgba(76, 175, 80, 0.4); }
 
@@ -46,68 +45,33 @@
             width: 100%; padding: 10px; border-radius: 8px; border: 2px solid #ddd;
             font-size: 1rem; background-color: white; outline: none;
         }
-        /* Destaque para a opção Vet */
-        select option[value="6"] { font-weight: bold; color: #d32f2f; }
 
-        /* LINHA DE CADA REFEIÇÃO */
-        .dynamic-schedule {
-            margin-top: 10px;
-            display: flex;
-            flex-direction: column;
-            gap: 10px; /* Gap um pouco menor para caber 6 */
-        }
+        .dynamic-schedule { margin-top: 10px; display: flex; flex-direction: column; gap: 10px; }
 
         .meal-row {
-            display: flex;
-            align-items: center;
-            justify-content: space-between;
-            background: #fff;
-            padding: 6px 12px; /* Padding reduzido para caber 6 na tela */
-            border: 1px solid #ddd;
-            border-radius: 12px;
-            transition: all 0.3s ease;
+            display: flex; align-items: center; justify-content: space-between;
+            background: #fff; padding: 6px 12px; border: 1px solid #ddd;
+            border-radius: 12px; transition: all 0.3s ease;
         }
 
-        /* ESTILO QUANDO JÁ FOI DADO (FED) */
-        .meal-row.fed {
-            background-color: #dcedc8;
-            border-color: #8bc34a;
-            opacity: 0.8;
-        }
-        .meal-row.fed input[type="time"] {
-            text-decoration: line-through;
-            color: #558b2f;
-            background-color: transparent;
-            border: none;
-        }
+        .meal-row.fed { background-color: #dcedc8; border-color: #8bc34a; opacity: 0.8; }
+        .meal-row.fed input[type="time"] { text-decoration: line-through; color: #558b2f; background-color: transparent; border: none; }
 
         .time-label { font-size: 0.8rem; font-weight: bold; color: #666; width: 30px; }
         
         input[type="time"] {
             font-family: 'Segoe UI', sans-serif; font-size: 1.1rem; padding: 4px;
             border: 1px solid #eee; border-radius: 6px; background: #f9f9f9; color: #333;
-            width: 90px; text-align: center; font-weight: bold;
-            outline: none;
+            width: 90px; text-align: center; font-weight: bold; outline: none;
         }
 
-        /* CHECKBOX CUSTOMIZADO */
         .check-container { display: flex; align-items: center; gap: 5px; }
-        .check-btn {
-            width: 24px; height: 24px; cursor: pointer;
-            accent-color: #2e7d32; transform: scale(1.2);
-        }
+        .check-btn { width: 24px; height: 24px; cursor: pointer; accent-color: #2e7d32; transform: scale(1.2); }
 
         .status-bar {
             margin-top: 15px; padding: 10px; background: #333; color: white;
-            border-radius: 8px; font-size: 0.9rem; font-weight: bold;
-            min-height: 20px;
+            border-radius: 8px; font-size: 0.9rem; font-weight: bold; min-height: 20px;
         }
-        
-        .btn-notify {
-            margin-top: 15px; background: transparent; border: 1px solid #999; 
-            padding: 8px 15px; border-radius: 20px; font-size: 0.8rem; color: #555; cursor: pointer;
-        }
-        .btn-notify.active { background: #e3f2fd; border-color: #2196f3; color: #0d47a1; }
 
         .footer { margin-top: 20px; font-size: 0.7rem; color: #aaa; }
     </style>
@@ -115,8 +79,8 @@
 <body>
 
     <div class="card">
-        <h1>Luffy Vet Care 🩺</h1>
-        <h4 style="margin-bottom: 10px;">Recuperação (6x ao dia)</h4>
+        <h1>Luffy Family 🐾</h1>
+        <h4 style="margin-bottom: 10px;">Evite alimentação dupla!</h4>
 
         <div class="info-row">
             <span>Idade:</span> <strong id="idadeDisplay">--</strong>
@@ -127,9 +91,9 @@
 
         <div class="select-container">
             <select id="refeicoesSelect" onchange="resetarHorarios(true)">
-                <option value="6" selected>6 Refeições (Vet - Recuperação)</option>
-                <option value="4">4 Refeições (Padrão)</option>
+                <option value="4" selected>4 Refeições (Padrão Ideal)</option>
                 <option value="3">3 Refeições (Dias corridos)</option>
+                <option value="6">6 Refeições (Vet - Recuperação)</option>
             </select>
         </div>
 
@@ -138,28 +102,17 @@
         </div>
         
         <div id="clockContainer" class="dynamic-schedule"></div>
-
         <div id="statusBar" class="status-bar">Iniciando...</div>
-        
-        <button id="btnNotify" class="btn-notify" onclick="ativarNotificacoes()">🔔 Ativar Notificações</button>
-
-        <div id="syncStatus" style="font-size: 0.7rem; color: #ccc; margin-top: 5px;"></div>
+        <div id="syncStatus" style="font-size: 0.7rem; color: #ccc; margin-top: 10px;"></div>
     </div>
 
     <script>
-        // --- CONFIGURAÇÃO ---
-        const DATA_NASCIMENTO = new Date(2025, 9, 31); // 31/10/2025
-        
-        // ******************************************************
-        // SEU PANTRY ID (Mantido o mesmo)
+        const DATA_NASCIMENTO = new Date(2025, 9, 31); 
         const PANTRY_ID = "c42cdca2-f5c9-4b78-b7ba-527236418398"; 
-        // ******************************************************
-
         const BASKET_NAME = "LuffySchedule";
         const API_URL = `https://getpantry.cloud/apiv1/pantry/${PANTRY_ID}/basket/${BASKET_NAME}`;
 
         window.onload = function() {
-            // Inicializa localmente
             if(document.getElementById('clockContainer').innerHTML === "") {
                 resetarHorarios(false); 
             }
@@ -169,15 +122,8 @@
             carregarDaNuvem(); 
             setInterval(carregarDaNuvem, 5000); 
             setInterval(verificarStatusVisual, 60000); 
-            
-            if (Notification.permission === "granted") {
-                const btn = document.getElementById('btnNotify');
-                btn.innerText = "✅ Notificações Ativas";
-                btn.classList.add('active');
-            }
         };
 
-        // --- LÓGICA DE NUVEM ---
         function salvarNaNuvem() {
             const inputsTime = document.querySelectorAll('input[type="time"]');
             const inputsCheck = document.querySelectorAll('input[type="checkbox"]');
@@ -187,41 +133,22 @@
             const numRefeicoes = document.getElementById('refeicoesSelect').value;
             const hoje = new Date().toLocaleDateString(); 
 
-            const dados = {
-                data: hoje,
-                modo: numRefeicoes,
-                times: horarios,
-                checks: checados, 
-                autor: "AppUser"
-            };
+            const dados = { data: hoje, modo: numRefeicoes, times: horarios, checks: checados, autor: "AppUser" };
             
             document.getElementById('syncStatus').innerText = "Salvando...";
-            
-            fetch(API_URL, {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify(dados)
-            })
+            fetch(API_URL, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(dados) })
             .then(() => {
                 document.getElementById('syncStatus').innerText = "Sincronizado";
                 setTimeout(() => { document.getElementById('syncStatus').innerText = ""; }, 2000);
             })
-            .catch(err => {
-                console.error("Erro save", err);
-                document.getElementById('syncStatus').innerText = "Offline";
-            });
+            .catch(err => { document.getElementById('syncStatus').innerText = "Offline"; });
         }
 
         function carregarDaNuvem() {
-            fetch(API_URL)
-            .then(res => res.json())
-            .then(dados => {
+            fetch(API_URL).then(res => res.json()).then(dados => {
                 const hoje = new Date().toLocaleDateString();
-                if (dados.data === hoje) {
-                    aplicarDados(dados);
-                }
-            })
-            .catch(err => { console.log("Erro load ou vazio"); });
+                if (dados.data === hoje) aplicarDados(dados);
+            }).catch(err => {});
         }
 
         function aplicarDados(dados) {
@@ -256,49 +183,29 @@
             verificarStatusVisual();
         }
 
-        // --- INTERFACE ---
         function gerarInputsVisuais(numRefeicoes) {
             const container = document.getElementById('clockContainer');
             container.innerHTML = "";
-            
-            // Lógica de intervalo adaptativa
             let intervalo = 4;
             if (numRefeicoes === 6) intervalo = 3;
             if (numRefeicoes === 3) intervalo = 6;
 
             for (let i = 0; i < numRefeicoes; i++) {
-                let row = document.createElement('div');
-                row.className = 'meal-row';
+                let row = document.createElement('div'); row.className = 'meal-row';
+                let label = document.createElement('div'); label.className = 'time-label'; label.innerText = `#${i+1}`;
                 
-                let label = document.createElement('div');
-                label.className = 'time-label';
-                label.innerText = `#${i+1}`;
-                
-                let input = document.createElement('input');
-                input.type = 'time';
-                input.id = `time-${i}`;
-                input.onchange = function() { 
-                    recalcularCascata(i, numRefeicoes, intervalo);
-                    salvarNaNuvem();
-                };
+                let input = document.createElement('input'); input.type = 'time'; input.id = `time-${i}`;
+                input.onchange = function() { recalcularCascata(i, numRefeicoes, intervalo); salvarNaNuvem(); };
 
-                let checkContainer = document.createElement('div');
-                checkContainer.className = 'check-container';
-                let check = document.createElement('input');
-                check.type = 'checkbox';
-                check.className = 'check-btn';
-                check.id = `check-${i}`;
+                let checkContainer = document.createElement('div'); checkContainer.className = 'check-container';
+                let check = document.createElement('input'); check.type = 'checkbox'; check.className = 'check-btn'; check.id = `check-${i}`;
                 check.onchange = function() {
-                    if(this.checked) row.classList.add('fed');
-                    else row.classList.remove('fed');
-                    salvarNaNuvem(); 
-                    verificarStatusVisual();
+                    if(this.checked) row.classList.add('fed'); else row.classList.remove('fed');
+                    salvarNaNuvem(); verificarStatusVisual();
                 };
 
                 checkContainer.appendChild(check);
-                row.appendChild(label);
-                row.appendChild(input);
-                row.appendChild(checkContainer);
+                row.appendChild(label); row.appendChild(input); row.appendChild(checkContainer);
                 container.appendChild(row);
             }
         }
@@ -306,68 +213,41 @@
         function resetarHorarios(isManualChange) {
             const numRefeicoes = parseInt(document.getElementById('refeicoesSelect').value);
             gerarInputsVisuais(numRefeicoes);
-
-            let horaBase = 7; 
-            // Intervalo padrão para o reset
-            let intervalo = 4;
+            let horaBase = 7; let intervalo = 4;
             if (numRefeicoes === 6) intervalo = 3;
             if (numRefeicoes === 3) intervalo = 6;
 
             const inputs = document.querySelectorAll('input[type="time"]');
-
             inputs.forEach((input, i) => {
-                let h = horaBase + (i * intervalo);
-                if (h >= 24) h -= 24;
+                let h = horaBase + (i * intervalo); if (h >= 24) h -= 24;
                 input.value = `${h.toString().padStart(2, '0')}:00`;
             });
 
-            calcularDieta();
-            verificarStatusVisual();
+            calcularDieta(); verificarStatusVisual();
             if (isManualChange) salvarNaNuvem();
         }
 
         function recalcularCascata(indexMudado, totalRefeicoes, intervalo) {
             let inputMudado = document.getElementById(`time-${indexMudado}`);
             if(!inputMudado.value) return;
-
             let [h, m] = inputMudado.value.split(':').map(Number);
             let minutosBase = (h * 60) + m;
 
             for (let i = indexMudado + 1; i < totalRefeicoes; i++) {
                 let inputProximo = document.getElementById(`time-${i}`);
                 minutosBase += (intervalo * 60);
-                
                 let novosMinutos = minutosBase % 1440;
-                let novaHora = Math.floor(novosMinutos / 60);
-                let novoMin = novosMinutos % 60;
+                let novaHora = Math.floor(novosMinutos / 60); let novoMin = novosMinutos % 60;
                 inputProximo.value = `${novaHora.toString().padStart(2, '0')}:${novoMin.toString().padStart(2, '0')}`;
             }
-        }
-
-        // --- NOTIFICAÇÕES & STATUS ---
-        function ativarNotificacoes() {
-            if (!("Notification" in window)) {
-                alert("Este navegador não suporta notificações.");
-                return;
-            }
-            Notification.requestPermission().then(permission => {
-                if (permission === "granted") {
-                    new Notification("Luffy App", { body: "Notificações ativadas!" });
-                    document.getElementById('btnNotify').innerText = "✅ Notificações Ativas";
-                    document.getElementById('btnNotify').classList.add('active');
-                }
-            });
         }
 
         function verificarStatusVisual() {
             const inputsTime = document.querySelectorAll('input[type="time"]');
             const inputsCheck = document.querySelectorAll('input[type="checkbox"]');
-            
             const agora = new Date();
             const minutosAgora = (agora.getHours() * 60) + agora.getMinutes();
-            let proximaIndex = -1;
-            let encontrouProxima = false;
-            let tudoComido = true;
+            let proximaIndex = -1; let encontrouProxima = false; let tudoComido = true;
 
             inputsTime.forEach((input, i) => {
                 if (!inputsCheck[i].checked) {
@@ -375,20 +255,15 @@
                     if (!encontrouProxima) {
                         let [h, m] = input.value.split(':').map(Number);
                         let minutosRef = (h * 60) + m;
-                        if (minutosAgora < minutosRef + 60) {
-                            proximaIndex = i;
-                            encontrouProxima = true;
-                        }
+                        if (minutosAgora < minutosRef + 60) { proximaIndex = i; encontrouProxima = true; }
                     }
                 }
             });
 
             const statusBar = document.getElementById('statusBar');
-            
             if (tudoComido) {
                 document.body.classList.remove('feeding-time');
-                statusBar.innerText = "✅ Meta do dia atingida!";
-                return;
+                statusBar.innerText = "✅ Meta do dia atingida!"; return;
             }
 
             if (proximaIndex !== -1) {
@@ -396,49 +271,26 @@
                 let [h, m] = horaProx.split(':').map(Number);
                 let minutosRef = (h * 60) + m;
                 
-                // Janela de Alimentação
                 if (minutosAgora >= (minutosRef - 15) && minutosAgora <= (minutosRef + 30)) {
                     document.body.classList.add('feeding-time');
-                    statusBar.innerText = `🩺 HORA DO REMÉDIO/COMIDA! (${horaProx})`;
-                    tocarNotificacao(`Hora da refeição ${horaProx}!`);
+                    statusBar.innerText = `🍖 HORA DE COMER! (${horaProx})`;
                 } else {
                     document.body.classList.remove('feeding-time');
-                    let diff = minutosRef - minutosAgora;
-                    if (diff < 0) diff += 1440;
-                    let horasFalta = Math.floor(diff / 60);
-                    let minFalta = diff % 60;
-                    
+                    let diff = minutosRef - minutosAgora; if (diff < 0) diff += 1440;
+                    let horasFalta = Math.floor(diff / 60); let minFalta = diff % 60;
                     if (horasFalta > 0) statusBar.innerText = `⏳ Próxima: ${horaProx} (falta ${horasFalta}h ${minFalta}m)`;
                     else statusBar.innerText = `⏳ Próxima: ${horaProx} (falta ${minFalta} min)`;
                 }
-            } else {
-                statusBar.innerText = "Aguardando próximo dia...";
-            }
+            } else { statusBar.innerText = "Aguardando próximo dia..."; }
         }
 
-        function tocarNotificacao(texto) {
-            if (Notification.permission !== "granted") return;
-            const agora = new Date();
-            const chave = `notif-${agora.getDate()}-${agora.getHours()}-${agora.getMinutes()}`; // Mais frequente
-            if (sessionStorage.getItem(chave)) return;
-
-            try {
-                new Notification("Luffy Care", { body: texto });
-                sessionStorage.setItem(chave, "true");
-            } catch(e) {}
-        }
-
-        // --- CÁLCULO DIETA ---
         function calcularDieta() {
-            const hoje = new Date();
-            hoje.setHours(0,0,0,0); 
+            const hoje = new Date(); hoje.setHours(0,0,0,0); 
             let meses = (hoje.getFullYear() - DATA_NASCIMENTO.getFullYear()) * 12;
-            meses -= DATA_NASCIMENTO.getMonth();
-            meses += hoje.getMonth();
+            meses -= DATA_NASCIMENTO.getMonth(); meses += hoje.getMonth();
             let diasExtras = hoje.getDate() - DATA_NASCIMENTO.getDate();
             if (diasExtras < 0) {
-                meses--;
-                let ultimoDiaMesAnterior = new Date(hoje.getFullYear(), hoje.getMonth(), 0).getDate();
+                meses--; let ultimoDiaMesAnterior = new Date(hoje.getFullYear(), hoje.getMonth(), 0).getDate();
                 diasExtras += ultimoDiaMesAnterior;
             }
             document.getElementById('idadeDisplay').innerText = `${meses} meses, ${diasExtras} dias`;
@@ -448,17 +300,13 @@
             if (meses < 2) totalDiario = 350 + (diasExtras * 3); 
             else if (meses >= 8) totalDiario = 900;
             else {
-                const baseAtual = tabela[meses];
-                const baseProxima = tabela[meses + 1] || baseAtual;
+                const baseAtual = tabela[meses]; const baseProxima = tabela[meses + 1] || baseAtual;
                 totalDiario = baseAtual + ((baseProxima - baseAtual) / 30 * diasExtras);
             }
             const numRefeicoes = parseInt(document.getElementById('refeicoesSelect').value);
             const totalFinal = Math.round(totalDiario);
-            
-            // Exibe a gramagem total e por refeição
             document.getElementById('totalGrams').innerText = totalFinal + " g (" + Math.round(totalFinal/numRefeicoes) + "g por vez)";
         }
     </script>
-
 </body>
 </html>
