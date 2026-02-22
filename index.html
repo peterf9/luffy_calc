@@ -30,6 +30,25 @@
         body.feeding-time { background-color: #e8f5e9; }
         body.feeding-time .card { border-top-color: #2e7d32; box-shadow: 0 0 30px rgba(76, 175, 80, 0.4); }
 
+        /* NOVO: Estilo do Banner de Mesversário */
+        .banner-aniversario {
+            background: linear-gradient(135deg, #ffeb3b, #ffc107);
+            color: #d32f2f;
+            padding: 10px;
+            border-radius: 10px;
+            font-weight: bold;
+            font-size: 1.1rem;
+            margin-bottom: 15px;
+            box-shadow: 0 4px 10px rgba(255, 193, 7, 0.3);
+            animation: bounceIn 0.8s ease-out;
+            display: none; /* Escondido por padrão */
+        }
+        @keyframes bounceIn {
+            0% { transform: scale(0.8); opacity: 0; }
+            60% { transform: scale(1.05); opacity: 1; }
+            100% { transform: scale(1); }
+        }
+
         h1 { color: #333; margin: 0; font-size: 1.5rem; letter-spacing: -0.5px; }
         h4 { color: #666; font-weight: normal; margin-top: 5px; margin-bottom: 20px; font-size: 0.9rem; }
         
@@ -79,6 +98,8 @@
 <body>
 
     <div class="card">
+        <div id="bannerAniversario" class="banner-aniversario"></div>
+
         <h1>Luffy Family 🐾</h1>
         <h4 style="margin-bottom: 10px;">Evite alimentação dupla!</h4>
 
@@ -107,7 +128,7 @@
     </div>
 
     <script>
-        const DATA_NASCIMENTO = new Date(2025, 9, 31); 
+        const DATA_NASCIMENTO = new Date(2025, 9, 31); // 31/10/2025
         const PANTRY_ID = "c42cdca2-f5c9-4b78-b7ba-527236418398"; 
         const BASKET_NAME = "LuffySchedule";
         const API_URL = `https://getpantry.cloud/apiv1/pantry/${PANTRY_ID}/basket/${BASKET_NAME}`;
@@ -286,6 +307,8 @@
 
         function calcularDieta() {
             const hoje = new Date(); hoje.setHours(0,0,0,0); 
+            
+            // 1. Calcula os meses e dias para exibir a idade (mantido)
             let meses = (hoje.getFullYear() - DATA_NASCIMENTO.getFullYear()) * 12;
             meses -= DATA_NASCIMENTO.getMonth(); meses += hoje.getMonth();
             let diasExtras = hoje.getDate() - DATA_NASCIMENTO.getDate();
@@ -295,6 +318,41 @@
             }
             document.getElementById('idadeDisplay').innerText = `${meses} meses, ${diasExtras} dias`;
 
+            // ----------------------------------------------------
+            // 2. LÓGICA DE MESVERSÁRIO (Contorna o bug do dia 31)
+            // ----------------------------------------------------
+            let mesesCompletos = (hoje.getFullYear() - DATA_NASCIMENTO.getFullYear()) * 12 + (hoje.getMonth() - DATA_NASCIMENTO.getMonth());
+            
+            const diaHoje = hoje.getDate();
+            const diaNasc = DATA_NASCIMENTO.getDate();
+            const ultimoDiaMes = new Date(hoje.getFullYear(), hoje.getMonth() + 1, 0).getDate();
+            
+            let ehMesversario = false;
+            if (mesesCompletos > 0 && mesesCompletos <= 12) {
+                // Se hoje for dia 31 (ou o dia do nascimento)
+                if (diaHoje === diaNasc) {
+                    ehMesversario = true;
+                } 
+                // Se o mês for curto (ex: Feveireiro, Abril) e hoje for o último dia do mês
+                else if (diaNasc > ultimoDiaMes && diaHoje === ultimoDiaMes) {
+                    ehMesversario = true;
+                }
+            }
+
+            const banner = document.getElementById('bannerAniversario');
+            if (ehMesversario) {
+                banner.style.display = 'block';
+                if (mesesCompletos === 12) {
+                    banner.innerHTML = "🎉 Hoje o Luffy faz 1 ANO de vida! 🎂🐶";
+                } else {
+                    banner.innerHTML = `🎉 Hoje o Luffy completa ${mesesCompletos} meses! 🎂🐾`;
+                }
+            } else {
+                banner.style.display = 'none';
+            }
+            // ----------------------------------------------------
+
+            // 3. Calcula a Gramagem Diária (mantido)
             const tabela = { 2: 442, 3: 584, 4: 695, 5: 808, 6: 920, 7: 930, 8: 900 };
             let totalDiario = 0;
             if (meses < 2) totalDiario = 350 + (diasExtras * 3); 
