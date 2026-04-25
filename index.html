@@ -42,6 +42,10 @@
             margin-top: 15px; padding: 10px; background: #333; color: white;
             border-radius: 8px; font-size: 0.9rem; font-weight: bold; min-height: 20px;
         }
+        #debugPanel {
+            margin-top: 15px; padding: 10px; background: #ffebee; border-radius: 8px;
+            font-size: 0.65rem; color: #b71c1c; text-align: left; word-break: break-all;
+        }
     </style>
 </head>
 <body>
@@ -60,6 +64,8 @@
         <div id="clockContainer" style="margin-top: 15px;"></div>
         <div id="statusBar" class="status-bar">Conectando ao Antigravity...</div>
         <div id="syncStatus" style="font-size: 0.7rem; color: #ccc; margin-top: 10px;"></div>
+        
+        <div id="debugPanel">Aguardando dados...</div>
     </div>
 
     <script>
@@ -81,62 +87,77 @@
                 const response = await fetch(API_URL);
                 const data = await response.json();
                 fullCloudData = data;
-                activePetId = data.activePetId;
-                aplicarDados(fullCloudData.pets[activePetId]);
-            } catch (err) { console.log("Erro de conexão com a nuvem."); }
+                activePetId = data?.activePetId;
+                
+                // Imprime os dados brutos no rodapé para diagnóstico
+                const dbg = document.getElementById('debugPanel');
+                dbg.innerText = `Raw JSON:\n PetID: ${activePetId}\n Dados Encontrados: ${data?.pets ? 'Sim' : 'Não'}`;
+
+                const pet = data?.pets?.[activePetId];
+                if (!pet) {
+                    document.getElementById('statusBar').innerText = "⚠️ Pet não encontrado na base.";
+                    return;
+                }
+                
+                aplicarDados(pet);
+            } catch (err) { 
+                document.getElementById('statusBar').innerText = "Erro de conexão.";
+            }
         }
 
         function aplicarDados(pet) {
-            if (!pet) return;
+            // Optional Chaining (?.) previne quebra de código se o banco vier incompleto
+            const name = pet?.petInfo?.name || "Pet";
+            const totalGrams = pet?.schedule?.totalGrams || 0;
+            const gramsPerMeal = pet?.schedule?.gramsPerMeal || 0;
 
-            // 1. Atualiza Cabeçalhos via Antigravity
-            document.getElementById('petName').innerText = `${pet.petInfo.name} Family 🐾`;
-            document.getElementById('totalGrams').innerText = `${pet.schedule.totalGrams} g (~${pet.schedule.gramsPerMeal}g/pote)`;
+            document.getElementById('petName').innerText = `${name} Family 🐾`;
+            document.getElementById('totalGrams').innerText = `${totalGrams} g (~${gramsPerMeal}g/pote)`;
             
-            // Cálculo simples de idade apenas para UI
-            if (pet.petInfo.birthDate) {
+            if (pet?.petInfo?.birthDate) {
                 const birth = new Date(pet.petInfo.birthDate);
-                const hoje = new Date();
-                let meses = (hoje.getFullYear() - birth.getFullYear()) * 12 + (hoje.getMonth() - birth.getMonth());
-                let dias = hoje.getDate() - birth.getDate();
-                if (dias < 0) { meses--; dias += 30; }
-                document.getElementById('idadeDisplay').innerText = `${meses} meses, ${dias} dias`;
+                if (!isNaN(birth.getTime())) {
+                    const hoje = new Date();
+                    let meses = (hoje.getFullYear() - birth.getFullYear()) * 12 + (hoje.getMonth() - birth.getMonth());
+                    let dias = hoje.getDate() - birth.getDate();
+                    if (dias < 0) { meses--; dias += 30; }
+                    document.getElementById('idadeDisplay').innerText = `${meses} meses, ${dias} dias`;
+                }
             }
 
-            // 2. Extrai log de hoje (O novo formato é um Array de objetos)
+            // Lida com Nós Ausentes (Fallback seguro)
             const dataHoje = new Date().toISOString().split('T')[0];
-            const logHoje = pet.logs[dataHoje] || [];
+            const logsNode = pet?.logs || {};
+            const logHoje = Array.isArray(logsNode[dataHoje]) ? logsNode[dataHoje] : [];
+            const meals = pet?.schedule?.meals || [];
 
             const container = document.getElementById('clockContainer');
 
-            // Renderiza os inputs se for a primeira carga ou se o Antigravity mudou a rotina
-            if (container.children.length !== pet.schedule.meals.length) {
+            if (container.children.length !== meals.length) {
                 container.innerHTML = "";
-                pet.schedule.meals.forEach(meal => {
+                meals.forEach(meal => {
                     let row = document.createElement('div');
                     row.className = 'meal-row';
                     row.id = `row-${meal.id}`;
                     
                     row.innerHTML = `
-                        <div class="time-label">${meal.name} <br><small style="font-size:0.65rem; color:#999;">${meal.grams}g</small></div>
-                        <input type="time" id="time-${meal.id}" value="${meal.time}" onchange="salvarInteracao('${meal.id}')">
+                        <div class="time-label">${meal.name || 'Refeição'} <br><small style="font-size:0.65rem; color:#999;">${meal.grams || 0}g</small></div>
+                        <input type="time" id="time-${meal.id}" value="${meal.time || '00:00'}" onchange="salvarInteracao('${meal.id}')">
                         <input type="checkbox" id="check-${meal.id}" class="check-btn" onchange="salvarInteracao('${meal.id}')">
                     `;
                     container.appendChild(row);
                 });
             }
 
-            // Atualiza os estados silenciosamente
-            pet.schedule.meals.forEach(meal => {
+            meals.forEach(meal => {
                 const inputTime = document.getElementById(`time-${meal.id}`);
                 const inputCheck = document.getElementById(`check-${meal.id}`);
                 const row = document.getElementById(`row-${meal.id}`);
 
-                if (document.activeElement !== inputTime) inputTime.value = meal.time;
+                if (inputTime && document.activeElement !== inputTime) inputTime.value = meal.time || '00:00';
                 
-                // Procura no array se a refeição já foi completada hoje
                 const isChecked = logHoje.some(log => log.id === meal.id);
-                inputCheck.checked = isChecked;
+                if (inputCheck) inputCheck.checked = isChecked;
                 if (isChecked) row.classList.add('fed'); else row.classList.remove('fed');
             });
 
@@ -144,30 +165,29 @@
         }
 
         async function salvarInteracao(mealId) {
-            const pet = fullCloudData.pets[activePetId];
+            const pet = fullCloudData?.pets?.[activePetId];
+            if (!pet) return;
+            
             const dataHoje = new Date().toISOString().split('T')[0];
             
-            // Garante que o array de hoje exista
-            if (!pet.logs[dataHoje]) pet.logs[dataHoje] = [];
+            // Reconstrói a árvore de dados se ela estiver vazia na nuvem
+            if (!pet.logs) pet.logs = {};
+            if (!pet.logs[dataHoje] || !Array.isArray(pet.logs[dataHoje])) pet.logs[dataHoje] = [];
             let logArray = pet.logs[dataHoje];
 
             const inputTime = document.getElementById(`time-${mealId}`).value;
             const isChecked = document.getElementById(`check-${mealId}`).checked;
 
-            // Sincroniza a Hora
-            const mealObj = pet.schedule.meals.find(m => m.id === mealId);
+            const mealObj = pet?.schedule?.meals?.find(m => m.id === mealId);
             if (mealObj) mealObj.time = inputTime;
 
-            // Sincroniza o Check (Novo formato de Array)
             const logIndex = logArray.findIndex(l => l.id === mealId);
 
             if (isChecked && logIndex === -1) {
-                // Adiciona o check com o timestamp
                 const agora = new Date();
                 const horaConclusao = String(agora.getHours()).padStart(2, '0') + ':' + String(agora.getMinutes()).padStart(2, '0');
                 logArray.push({ id: mealId, completedAt: horaConclusao });
             } else if (!isChecked && logIndex !== -1) {
-                // Remove o check se o usuário desmarcar
                 logArray.splice(logIndex, 1);
             }
 
@@ -187,22 +207,24 @@
         }
 
         function verificarStatusVisual() {
-            const pet = fullCloudData.pets?.[activePetId];
+            const pet = fullCloudData?.pets?.[activePetId];
             if (!pet) return;
 
             const agora = new Date();
             const minAgora = (agora.getHours() * 60) + agora.getMinutes();
             const dataHoje = agora.toISOString().split('T')[0];
-            const logHoje = pet.logs[dataHoje] || [];
+            const logsNode = pet?.logs || {};
+            const logHoje = Array.isArray(logsNode[dataHoje]) ? logsNode[dataHoje] : [];
+            const meals = pet?.schedule?.meals || [];
             
             let proxima = null;
             let metaAtingida = true;
 
-            pet.schedule.meals.forEach(meal => {
+            meals.forEach(meal => {
                 const isChecked = logHoje.some(l => l.id === meal.id);
                 if (!isChecked) {
                     metaAtingida = false;
-                    const [h, m] = meal.time.split(':').map(Number);
+                    const [h, m] = (meal.time || "00:00").split(':').map(Number);
                     const minMeal = (h * 60) + m;
                     if (!proxima && minAgora < minMeal + 60) proxima = meal;
                 }
