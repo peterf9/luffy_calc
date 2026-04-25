@@ -30,18 +30,12 @@
         body.feeding-time { background-color: #e8f5e9; }
         body.feeding-time .card { border-top-color: #2e7d32; box-shadow: 0 0 30px rgba(76, 175, 80, 0.4); }
 
-        /* NOVO: Estilo do Banner de Mesversário */
         .banner-aniversario {
             background: linear-gradient(135deg, #ffeb3b, #ffc107);
-            color: #d32f2f;
-            padding: 10px;
-            border-radius: 10px;
-            font-weight: bold;
-            font-size: 1.1rem;
-            margin-bottom: 15px;
+            color: #d32f2f; padding: 10px; border-radius: 10px;
+            font-weight: bold; font-size: 1.1rem; margin-bottom: 15px;
             box-shadow: 0 4px 10px rgba(255, 193, 7, 0.3);
-            animation: bounceIn 0.8s ease-out;
-            display: none; /* Escondido por padrão */
+            animation: bounceIn 0.8s ease-out; display: none;
         }
         @keyframes bounceIn {
             0% { transform: scale(0.8); opacity: 0; }
@@ -56,13 +50,6 @@
             display: flex; justify-content: space-between; margin-bottom: 10px;
             font-size: 0.9rem; color: #555; background: #f8f9fa;
             padding: 10px; border-radius: 10px; border: 1px solid #eee;
-        }
-
-        .select-container { margin: 15px 0; text-align: left; }
-        label { display: block; margin-bottom: 5px; font-weight: bold; color: #444; font-size: 0.9rem; }
-        select {
-            width: 100%; padding: 10px; border-radius: 8px; border: 2px solid #ddd;
-            font-size: 1rem; background-color: white; outline: none;
         }
 
         .dynamic-schedule { margin-top: 10px; display: flex; flex-direction: column; gap: 10px; }
@@ -91,17 +78,14 @@
             margin-top: 15px; padding: 10px; background: #333; color: white;
             border-radius: 8px; font-size: 0.9rem; font-weight: bold; min-height: 20px;
         }
-
-        .footer { margin-top: 20px; font-size: 0.7rem; color: #aaa; }
     </style>
 </head>
 <body>
 
     <div class="card">
         <div id="bannerAniversario" class="banner-aniversario"></div>
-
         <h1>Luffy Family 🐾</h1>
-        <h4 style="margin-bottom: 10px;">Evite alimentação dupla!</h4>
+        <h4 style="margin-bottom: 10px;">Rotina Fixa: 3 Refeições</h4>
 
         <div class="info-row">
             <span>Idade:</span> <strong id="idadeDisplay">--</strong>
@@ -110,15 +94,7 @@
             <span>Meta Hoje:</span> <strong id="totalGrams">-- g</strong>
         </div>
 
-        <div class="select-container">
-            <select id="refeicoesSelect" onchange="resetarHorarios(true)">
-                <option value="4" selected>4 Refeições (Padrão Ideal)</option>
-                <option value="3">3 Refeições (Dias corridos)</option>
-                <option value="6">6 Refeições (Vet - Recuperação)</option>
-            </select>
-        </div>
-
-        <div style="text-align: left; margin-bottom: 5px; font-size: 0.8rem; color: #666;">
+        <div style="text-align: left; margin-bottom: 5px; font-size: 0.8rem; color: #666; margin-top: 15px;">
             Marque a caixinha ao alimentar:
         </div>
         
@@ -128,10 +104,14 @@
     </div>
 
     <script>
-        const DATA_NASCIMENTO = new Date(2025, 9, 31); // 31/10/2025
+        const DATA_NASCIMENTO = new Date(2025, 9, 31); 
         const PANTRY_ID = "c42cdca2-f5c9-4b78-b7ba-527236418398"; 
         const BASKET_NAME = "LuffySchedule";
         const API_URL = `https://getpantry.cloud/apiv1/pantry/${PANTRY_ID}/basket/${BASKET_NAME}`;
+
+        // HARDCODE: Fixado para 3 refeições
+        const NUM_REFEICOES = 3;
+        const INTERVALO = 6; 
 
         window.onload = function() {
             if(document.getElementById('clockContainer').innerHTML === "") {
@@ -151,10 +131,9 @@
             
             const horarios = Array.from(inputsTime).map(i => i.value);
             const checados = Array.from(inputsCheck).map(i => i.checked);
-            const numRefeicoes = document.getElementById('refeicoesSelect').value;
             const hoje = new Date().toLocaleDateString(); 
 
-            const dados = { data: hoje, modo: numRefeicoes, times: horarios, checks: checados, autor: "AppUser" };
+            const dados = { data: hoje, modo: NUM_REFEICOES, times: horarios, checks: checados, autor: "AppUser" };
             
             document.getElementById('syncStatus').innerText = "Salvando...";
             fetch(API_URL, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(dados) })
@@ -173,12 +152,15 @@
         }
 
         function aplicarDados(dados) {
-            const currentMode = document.getElementById('refeicoesSelect').value;
-            if (currentMode !== dados.modo) {
-                document.getElementById('refeicoesSelect').value = dados.modo;
-                gerarInputsVisuais(parseInt(dados.modo));
-                calcularDieta();
+            // TRAVA DE SEGURANÇA: Se o banco na nuvem ainda tiver o formato antigo de 4 ou 6 refeições, 
+            // forçamos o reset para 3 refeições e sobrescrevemos o banco.
+            if (dados.modo != NUM_REFEICOES) {
+                resetarHorarios(true);
+                return;
             }
+
+            gerarInputsVisuais();
+            calcularDieta();
 
             const inputsTime = document.querySelectorAll('input[type="time"]');
             const inputsCheck = document.querySelectorAll('input[type="checkbox"]');
@@ -204,19 +186,18 @@
             verificarStatusVisual();
         }
 
-        function gerarInputsVisuais(numRefeicoes) {
+        function gerarInputsVisuais() {
             const container = document.getElementById('clockContainer');
+            // Só regera se não tiver a quantidade certa na tela
+            if(container.children.length === NUM_REFEICOES) return; 
+            
             container.innerHTML = "";
-            let intervalo = 4;
-            if (numRefeicoes === 6) intervalo = 3;
-            if (numRefeicoes === 3) intervalo = 6;
-
-            for (let i = 0; i < numRefeicoes; i++) {
+            for (let i = 0; i < NUM_REFEICOES; i++) {
                 let row = document.createElement('div'); row.className = 'meal-row';
                 let label = document.createElement('div'); label.className = 'time-label'; label.innerText = `#${i+1}`;
                 
                 let input = document.createElement('input'); input.type = 'time'; input.id = `time-${i}`;
-                input.onchange = function() { recalcularCascata(i, numRefeicoes, intervalo); salvarNaNuvem(); };
+                input.onchange = function() { recalcularCascata(i); salvarNaNuvem(); };
 
                 let checkContainer = document.createElement('div'); checkContainer.className = 'check-container';
                 let check = document.createElement('input'); check.type = 'checkbox'; check.className = 'check-btn'; check.id = `check-${i}`;
@@ -232,15 +213,12 @@
         }
 
         function resetarHorarios(isManualChange) {
-            const numRefeicoes = parseInt(document.getElementById('refeicoesSelect').value);
-            gerarInputsVisuais(numRefeicoes);
-            let horaBase = 7; let intervalo = 4;
-            if (numRefeicoes === 6) intervalo = 3;
-            if (numRefeicoes === 3) intervalo = 6;
+            gerarInputsVisuais();
+            let horaBase = 7; 
 
             const inputs = document.querySelectorAll('input[type="time"]');
             inputs.forEach((input, i) => {
-                let h = horaBase + (i * intervalo); if (h >= 24) h -= 24;
+                let h = horaBase + (i * INTERVALO); if (h >= 24) h -= 24;
                 input.value = `${h.toString().padStart(2, '0')}:00`;
             });
 
@@ -248,15 +226,15 @@
             if (isManualChange) salvarNaNuvem();
         }
 
-        function recalcularCascata(indexMudado, totalRefeicoes, intervalo) {
+        function recalcularCascata(indexMudado) {
             let inputMudado = document.getElementById(`time-${indexMudado}`);
             if(!inputMudado.value) return;
             let [h, m] = inputMudado.value.split(':').map(Number);
             let minutosBase = (h * 60) + m;
 
-            for (let i = indexMudado + 1; i < totalRefeicoes; i++) {
+            for (let i = indexMudado + 1; i < NUM_REFEICOES; i++) {
                 let inputProximo = document.getElementById(`time-${i}`);
-                minutosBase += (intervalo * 60);
+                minutosBase += (INTERVALO * 60);
                 let novosMinutos = minutosBase % 1440;
                 let novaHora = Math.floor(novosMinutos / 60); let novoMin = novosMinutos % 60;
                 inputProximo.value = `${novaHora.toString().padStart(2, '0')}:${novoMin.toString().padStart(2, '0')}`;
@@ -266,6 +244,8 @@
         function verificarStatusVisual() {
             const inputsTime = document.querySelectorAll('input[type="time"]');
             const inputsCheck = document.querySelectorAll('input[type="checkbox"]');
+            if (inputsTime.length !== NUM_REFEICOES || inputsCheck.length !== NUM_REFEICOES) return;
+
             const agora = new Date();
             const minutosAgora = (agora.getHours() * 60) + agora.getMinutes();
             let proximaIndex = -1; let encontrouProxima = false; let tudoComido = true;
@@ -308,7 +288,6 @@
         function calcularDieta() {
             const hoje = new Date(); hoje.setHours(0,0,0,0); 
             
-            // 1. Calcula os meses e dias para exibir a idade (mantido)
             let meses = (hoje.getFullYear() - DATA_NASCIMENTO.getFullYear()) * 12;
             meses -= DATA_NASCIMENTO.getMonth(); meses += hoje.getMonth();
             let diasExtras = hoje.getDate() - DATA_NASCIMENTO.getDate();
@@ -318,52 +297,37 @@
             }
             document.getElementById('idadeDisplay').innerText = `${meses} meses, ${diasExtras} dias`;
 
-            // ----------------------------------------------------
-            // 2. LÓGICA DE MESVERSÁRIO (Contorna o bug do dia 31)
-            // ----------------------------------------------------
             let mesesCompletos = (hoje.getFullYear() - DATA_NASCIMENTO.getFullYear()) * 12 + (hoje.getMonth() - DATA_NASCIMENTO.getMonth());
-            
-            const diaHoje = hoje.getDate();
-            const diaNasc = DATA_NASCIMENTO.getDate();
+            const diaHoje = hoje.getDate(); const diaNasc = DATA_NASCIMENTO.getDate();
             const ultimoDiaMes = new Date(hoje.getFullYear(), hoje.getMonth() + 1, 0).getDate();
             
             let ehMesversario = false;
             if (mesesCompletos > 0 && mesesCompletos <= 12) {
-                // Se hoje for dia 31 (ou o dia do nascimento)
-                if (diaHoje === diaNasc) {
-                    ehMesversario = true;
-                } 
-                // Se o mês for curto (ex: Feveireiro, Abril) e hoje for o último dia do mês
-                else if (diaNasc > ultimoDiaMes && diaHoje === ultimoDiaMes) {
-                    ehMesversario = true;
-                }
+                if (diaHoje === diaNasc) ehMesversario = true;
+                else if (diaNasc > ultimoDiaMes && diaHoje === ultimoDiaMes) ehMesversario = true;
             }
 
             const banner = document.getElementById('bannerAniversario');
             if (ehMesversario) {
                 banner.style.display = 'block';
-                if (mesesCompletos === 12) {
-                    banner.innerHTML = "🎉 Hoje o Luffy faz 1 ANO de vida! 🎂🐶";
-                } else {
-                    banner.innerHTML = `🎉 Hoje o Luffy completa ${mesesCompletos} meses! 🎂🐾`;
-                }
+                if (mesesCompletos === 12) banner.innerHTML = "🎉 Hoje o Luffy faz 1 ANO de vida! 🎂🐶";
+                else banner.innerHTML = `🎉 Hoje o Luffy completa ${mesesCompletos} meses! 🎂🐾`;
             } else {
                 banner.style.display = 'none';
             }
-            // ----------------------------------------------------
 
-            // 3. Calcula a Gramagem Diária (mantido)
-            const tabela = { 2: 442, 3: 584, 4: 695, 5: 808, 6: 920, 7: 930, 8: 900 };
+            // A matriz correta de 60-65kg
+            const tabela = { 2: 410, 3: 539, 4: 594, 5: 660, 6: 709, 7: 760, 8: 800 };
             let totalDiario = 0;
             if (meses < 2) totalDiario = 350 + (diasExtras * 3); 
-            else if (meses >= 8) totalDiario = 900;
+            else if (meses >= 8) totalDiario = 800;
             else {
                 const baseAtual = tabela[meses]; const baseProxima = tabela[meses + 1] || baseAtual;
                 totalDiario = baseAtual + ((baseProxima - baseAtual) / 30 * diasExtras);
             }
-            const numRefeicoes = parseInt(document.getElementById('refeicoesSelect').value);
+            
             const totalFinal = Math.round(totalDiario);
-            document.getElementById('totalGrams').innerText = totalFinal + " g (" + Math.round(totalFinal/numRefeicoes) + "g por vez)";
+            document.getElementById('totalGrams').innerText = totalFinal + " g (~" + Math.round(totalFinal/NUM_REFEICOES) + "g por vez)";
         }
     </script>
 </body>
