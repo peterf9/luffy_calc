@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Luffy Family App (Transition)</title>
+    <title>Smart Pet - UI</title>
     <style>
         body {
             font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
@@ -47,8 +47,8 @@
 <body>
 
     <div class="card">
-        <h1 id="petName">Luffy Family 🐾</h1>
-        <h4 style="margin-bottom: 10px;">Modo Sincronizado (Antigravity)</h4>
+        <h1 id="petName">Sincronizando... 🐾</h1>
+        <h4 style="margin-bottom: 10px;">Painel de Controle</h4>
 
         <div class="info-row">
             <span>Idade:</span> <strong id="idadeDisplay">--</strong>
@@ -57,22 +57,20 @@
             <span>Meta Hoje:</span> <strong id="totalGrams">-- g</strong>
         </div>
         
-        <div id="clockContainer"></div>
-        <div id="statusBar" class="status-bar">Iniciando...</div>
+        <div id="clockContainer" style="margin-top: 15px;"></div>
+        <div id="statusBar" class="status-bar">Conectando ao Antigravity...</div>
         <div id="syncStatus" style="font-size: 0.7rem; color: #ccc; margin-top: 10px;"></div>
     </div>
 
     <script>
-        const BIRTH_DATE = new Date(2025, 9, 31); // 31/10/2025
         const PANTRY_ID = "c42cdca2-f5c9-4b78-b7ba-527236418398"; 
         const BASKET_NAME = "LuffySchedule";
         const API_URL = `https://getpantry.cloud/apiv1/pantry/${PANTRY_ID}/basket/${BASKET_NAME}`;
 
-        let fullCloudData = {}; // Armazena o JSON completo para não perder dados do Antigravity
-        const PET_ID = "pet_1";
+        let fullCloudData = {}; 
+        let activePetId = "";
 
         window.onload = () => {
-            calcularDieta();
             carregarDaNuvem();
             setInterval(carregarDaNuvem, 5000);
             setInterval(verificarStatusVisual, 60000);
@@ -83,35 +81,52 @@
                 const response = await fetch(API_URL);
                 const data = await response.json();
                 fullCloudData = data;
-                aplicarDados(data.pets[PET_ID]);
-            } catch (err) { console.log("Erro na nuvem."); }
+                activePetId = data.activePetId;
+                aplicarDados(fullCloudData.pets[activePetId]);
+            } catch (err) { console.log("Erro de conexão com a nuvem."); }
         }
 
         function aplicarDados(pet) {
             if (!pet) return;
 
-            const container = document.getElementById('clockContainer');
-            const dataHoje = new Date().toISOString().split('T')[0]; // Formato YYYY-MM-DD
-            const logHoje = pet.logs[dataHoje] || {};
+            // 1. Atualiza Cabeçalhos via Antigravity
+            document.getElementById('petName').innerText = `${pet.petInfo.name} Family 🐾`;
+            document.getElementById('totalGrams').innerText = `${pet.schedule.totalGrams} g (~${pet.schedule.gramsPerMeal}g/pote)`;
+            
+            // Cálculo simples de idade apenas para UI
+            if (pet.petInfo.birthDate) {
+                const birth = new Date(pet.petInfo.birthDate);
+                const hoje = new Date();
+                let meses = (hoje.getFullYear() - birth.getFullYear()) * 12 + (hoje.getMonth() - birth.getMonth());
+                let dias = hoje.getDate() - birth.getDate();
+                if (dias < 0) { meses--; dias += 30; }
+                document.getElementById('idadeDisplay').innerText = `${meses} meses, ${dias} dias`;
+            }
 
-            // Renderiza se for a primeira vez ou se a quantidade mudou
-            if (container.children.length === 0) {
+            // 2. Extrai log de hoje (O novo formato é um Array de objetos)
+            const dataHoje = new Date().toISOString().split('T')[0];
+            const logHoje = pet.logs[dataHoje] || [];
+
+            const container = document.getElementById('clockContainer');
+
+            // Renderiza os inputs se for a primeira carga ou se o Antigravity mudou a rotina
+            if (container.children.length !== pet.schedule.meals.length) {
                 container.innerHTML = "";
-                pet.schedule.meals.forEach((meal, i) => {
+                pet.schedule.meals.forEach(meal => {
                     let row = document.createElement('div');
                     row.className = 'meal-row';
                     row.id = `row-${meal.id}`;
                     
                     row.innerHTML = `
-                        <div class="time-label">${meal.name}</div>
-                        <input type="time" id="time-${meal.id}" value="${meal.time}" onchange="salvarNoCheck()">
-                        <input type="checkbox" id="check-${meal.id}" class="check-btn" onchange="salvarNoCheck()">
+                        <div class="time-label">${meal.name} <br><small style="font-size:0.65rem; color:#999;">${meal.grams}g</small></div>
+                        <input type="time" id="time-${meal.id}" value="${meal.time}" onchange="salvarInteracao('${meal.id}')">
+                        <input type="checkbox" id="check-${meal.id}" class="check-btn" onchange="salvarInteracao('${meal.id}')">
                     `;
                     container.appendChild(row);
                 });
             }
 
-            // Atualiza status dos campos sem reconstruir a UI (evita piscar)
+            // Atualiza os estados silenciosamente
             pet.schedule.meals.forEach(meal => {
                 const inputTime = document.getElementById(`time-${meal.id}`);
                 const inputCheck = document.getElementById(`check-${meal.id}`);
@@ -119,7 +134,8 @@
 
                 if (document.activeElement !== inputTime) inputTime.value = meal.time;
                 
-                const isChecked = logHoje[meal.id] || false;
+                // Procura no array se a refeição já foi completada hoje
+                const isChecked = logHoje.some(log => log.id === meal.id);
                 inputCheck.checked = isChecked;
                 if (isChecked) row.classList.add('fed'); else row.classList.remove('fed');
             });
@@ -127,22 +143,35 @@
             verificarStatusVisual();
         }
 
-        async function salvarNoCheck() {
+        async function salvarInteracao(mealId) {
+            const pet = fullCloudData.pets[activePetId];
             const dataHoje = new Date().toISOString().split('T')[0];
-            const pet = fullCloudData.pets[PET_ID];
+            
+            // Garante que o array de hoje exista
+            if (!pet.logs[dataHoje]) pet.logs[dataHoje] = [];
+            let logArray = pet.logs[dataHoje];
 
-            // Inicializa log do dia se não existir
-            if (!pet.logs[dataHoje]) pet.logs[dataHoje] = {};
+            const inputTime = document.getElementById(`time-${mealId}`).value;
+            const isChecked = document.getElementById(`check-${mealId}`).checked;
 
-            pet.schedule.meals.forEach(meal => {
-                const inputTime = document.getElementById(`time-${meal.id}`);
-                const inputCheck = document.getElementById(`check-${meal.id}`);
-                
-                meal.time = inputTime.value;
-                pet.logs[dataHoje][meal.id] = inputCheck.checked;
-            });
+            // Sincroniza a Hora
+            const mealObj = pet.schedule.meals.find(m => m.id === mealId);
+            if (mealObj) mealObj.time = inputTime;
 
-            document.getElementById('syncStatus').innerText = "Sincronizando...";
+            // Sincroniza o Check (Novo formato de Array)
+            const logIndex = logArray.findIndex(l => l.id === mealId);
+
+            if (isChecked && logIndex === -1) {
+                // Adiciona o check com o timestamp
+                const agora = new Date();
+                const horaConclusao = String(agora.getHours()).padStart(2, '0') + ':' + String(agora.getMinutes()).padStart(2, '0');
+                logArray.push({ id: mealId, completedAt: horaConclusao });
+            } else if (!isChecked && logIndex !== -1) {
+                // Remove o check se o usuário desmarcar
+                logArray.splice(logIndex, 1);
+            }
+
+            document.getElementById('syncStatus').innerText = "Enviando ao Antigravity...";
             
             try {
                 await fetch(API_URL, {
@@ -150,7 +179,7 @@
                     headers: { 'Content-Type': 'application/json' },
                     body: JSON.stringify(fullCloudData)
                 });
-                document.getElementById('syncStatus').innerText = "Sincronizado com Antigravity";
+                document.getElementById('syncStatus').innerText = "Sincronizado";
                 setTimeout(() => { document.getElementById('syncStatus').innerText = ""; }, 2000);
             } catch (err) { document.getElementById('syncStatus').innerText = "Offline"; }
             
@@ -158,19 +187,20 @@
         }
 
         function verificarStatusVisual() {
-            const pet = fullCloudData.pets?.[PET_ID];
+            const pet = fullCloudData.pets?.[activePetId];
             if (!pet) return;
 
             const agora = new Date();
             const minAgora = (agora.getHours() * 60) + agora.getMinutes();
             const dataHoje = agora.toISOString().split('T')[0];
-            const logHoje = pet.logs[dataHoje] || {};
+            const logHoje = pet.logs[dataHoje] || [];
             
             let proxima = null;
             let metaAtingida = true;
 
             pet.schedule.meals.forEach(meal => {
-                if (!logHoje[meal.id]) {
+                const isChecked = logHoje.some(l => l.id === meal.id);
+                if (!isChecked) {
                     metaAtingida = false;
                     const [h, m] = meal.time.split(':').map(Number);
                     const minMeal = (h * 60) + m;
@@ -181,7 +211,7 @@
             const bar = document.getElementById('statusBar');
             if (metaAtingida) {
                 document.body.classList.remove('feeding-time');
-                bar.innerText = "✅ Meta atingida!";
+                bar.innerText = "✅ Rotina concluída!";
             } else if (proxima) {
                 const [h, m] = proxima.time.split(':').map(Number);
                 const minMeal = (h * 60) + m;
@@ -190,34 +220,9 @@
                     bar.innerText = `🍖 HORA DE COMER! (${proxima.time})`;
                 } else {
                     document.body.classList.remove('feeding-time');
-                    bar.innerText = `⏳ Próxima: ${proxima.time}`;
+                    bar.innerText = `⏳ Próxima: ${proxima.name} às ${proxima.time}`;
                 }
             }
-        }
-
-        function calcularDieta() {
-            const hoje = new Date(); 
-            const diffTime = Math.abs(hoje - BIRTH_DATE);
-            const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
-            
-            const meses = Math.floor(diffDays / 30.44);
-            const diasExtras = Math.floor(diffDays % 30.44);
-            
-            document.getElementById('idadeDisplay').innerText = `${meses} meses, ${diasExtras} dias`;
-
-            // Tabela 701g (Alvo 60-65kg)
-            const tabela = { 2: 410, 3: 539, 4: 594, 5: 660, 6: 709, 7: 760, 8: 800 };
-            let totalDiario = 0;
-            if (meses < 2) totalDiario = 350; 
-            else if (meses >= 8) totalDiario = 800;
-            else {
-                const bA = tabela[meses];
-                const bP = tabela[meses + 1] || bA;
-                totalDiario = bA + ((bP - bA) / 30 * diasExtras);
-            }
-            
-            const total = Math.round(totalDiario);
-            document.getElementById('totalGrams').innerText = `${total} g (~${Math.round(total/3)}g/pote)`;
         }
     </script>
 </body>
