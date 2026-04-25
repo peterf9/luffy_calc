@@ -43,15 +43,15 @@
             border-radius: 8px; font-size: 0.9rem; font-weight: bold; min-height: 20px;
         }
         #debugPanel {
-            margin-top: 15px; padding: 10px; background: #ffebee; border-radius: 8px;
-            font-size: 0.65rem; color: #b71c1c; text-align: left; word-break: break-all;
+            margin-top: 15px; padding: 10px; background: #e3f2fd; border-radius: 8px;
+            font-size: 0.7rem; color: #1565c0; text-align: left; word-break: break-all;
         }
     </style>
 </head>
 <body>
 
     <div class="card">
-        <h1 id="petName">Sincronizando... 🐾</h1>
+        <h1 id="petName">Buscando... 🐾</h1>
         <h4 style="margin-bottom: 10px;">Painel de Controle</h4>
 
         <div class="info-row">
@@ -62,15 +62,15 @@
         </div>
         
         <div id="clockContainer" style="margin-top: 15px;"></div>
-        <div id="statusBar" class="status-bar">Conectando ao Antigravity...</div>
+        <div id="statusBar" class="status-bar">Conectando à nuvem...</div>
         <div id="syncStatus" style="font-size: 0.7rem; color: #ccc; margin-top: 10px;"></div>
         
-        <div id="debugPanel">Aguardando dados...</div>
+        <div id="debugPanel">Lendo dados do Servidor...</div>
     </div>
 
     <script>
         const PANTRY_ID = "c42cdca2-f5c9-4b78-b7ba-527236418398"; 
-        const BASKET_NAME = "LuffySchedule";
+        const BASKET_NAME = "LuffySchedule"; // <-- SE MUDOU O NOME DA BASE, ALTERE AQUI
         const API_URL = `https://getpantry.cloud/apiv1/pantry/${PANTRY_ID}/basket/${BASKET_NAME}`;
 
         let fullCloudData = {}; 
@@ -84,29 +84,27 @@
 
         async function carregarDaNuvem() {
             try {
-                const response = await fetch(API_URL);
+                // TRUQUE ANTI-CACHE: Adiciona o timestamp na URL para forçar o download do arquivo novo
+                const urlSemCache = API_URL + "?t=" + new Date().getTime();
+                const response = await fetch(urlSemCache, { cache: "no-store" });
                 const data = await response.json();
+                
                 fullCloudData = data;
-                activePetId = data?.activePetId;
+                activePetId = data.activePetId;
+                const pet = data.pets?.[activePetId];
                 
-                // Imprime os dados brutos no rodapé para diagnóstico
-                const dbg = document.getElementById('debugPanel');
-                dbg.innerText = `Raw JSON:\n PetID: ${activePetId}\n Dados Encontrados: ${data?.pets ? 'Sim' : 'Não'}`;
+                // Debug na tela para você ver que a nuvem conectou certo
+                document.getElementById('debugPanel').innerText = `✅ Nuvem Conectada!\nID: ${activePetId || 'Vazio'}\nPet Encontrado: ${pet?.petInfo?.name || 'Não'}`;
 
-                const pet = data?.pets?.[activePetId];
-                if (!pet) {
-                    document.getElementById('statusBar').innerText = "⚠️ Pet não encontrado na base.";
-                    return;
-                }
+                if (pet) aplicarDados(pet);
                 
-                aplicarDados(pet);
             } catch (err) { 
-                document.getElementById('statusBar').innerText = "Erro de conexão.";
+                document.getElementById('debugPanel').innerText = `❌ Falha ao conectar: ${err.message}`;
             }
         }
 
         function aplicarDados(pet) {
-            // Optional Chaining (?.) previne quebra de código se o banco vier incompleto
+            // 1. Atualiza Textos
             const name = pet?.petInfo?.name || "Pet";
             const totalGrams = pet?.schedule?.totalGrams || 0;
             const gramsPerMeal = pet?.schedule?.gramsPerMeal || 0;
@@ -114,18 +112,25 @@
             document.getElementById('petName').innerText = `${name} Family 🐾`;
             document.getElementById('totalGrams').innerText = `${totalGrams} g (~${gramsPerMeal}g/pote)`;
             
-            if (pet?.petInfo?.birthDate) {
-                const birth = new Date(pet.petInfo.birthDate);
-                if (!isNaN(birth.getTime())) {
-                    const hoje = new Date();
-                    let meses = (hoje.getFullYear() - birth.getFullYear()) * 12 + (hoje.getMonth() - birth.getMonth());
-                    let dias = hoje.getDate() - birth.getDate();
-                    if (dias < 0) { meses--; dias += 30; }
-                    document.getElementById('idadeDisplay').innerText = `${meses} meses, ${dias} dias`;
-                }
+            // 2. Cálculo de Idade blindado contra bug de fuso horário
+            const dataNascimentoString = pet?.petInfo?.birthDate; // "2025-10-31"
+            if (dataNascimentoString && dataNascimentoString.includes("-")) {
+                const partes = dataNascimentoString.split("-");
+                const anoNasc = parseInt(partes[0]);
+                const mesNasc = parseInt(partes[1]) - 1; // Mês no JS começa em 0
+                const diaNasc = parseInt(partes[2]);
+                
+                const birth = new Date(anoNasc, mesNasc, diaNasc);
+                const hoje = new Date();
+                
+                let meses = (hoje.getFullYear() - birth.getFullYear()) * 12 + (hoje.getMonth() - birth.getMonth());
+                let dias = hoje.getDate() - birth.getDate();
+                if (dias < 0) { meses--; dias += 30; }
+                
+                document.getElementById('idadeDisplay').innerText = `${meses} meses, ${dias} dias`;
             }
 
-            // Lida com Nós Ausentes (Fallback seguro)
+            // 3. Extrai logs de hoje com fallback
             const dataHoje = new Date().toISOString().split('T')[0];
             const logsNode = pet?.logs || {};
             const logHoje = Array.isArray(logsNode[dataHoje]) ? logsNode[dataHoje] : [];
@@ -133,13 +138,13 @@
 
             const container = document.getElementById('clockContainer');
 
+            // Constrói HTML dos horários
             if (container.children.length !== meals.length) {
                 container.innerHTML = "";
                 meals.forEach(meal => {
                     let row = document.createElement('div');
                     row.className = 'meal-row';
                     row.id = `row-${meal.id}`;
-                    
                     row.innerHTML = `
                         <div class="time-label">${meal.name || 'Refeição'} <br><small style="font-size:0.65rem; color:#999;">${meal.grams || 0}g</small></div>
                         <input type="time" id="time-${meal.id}" value="${meal.time || '00:00'}" onchange="salvarInteracao('${meal.id}')">
@@ -149,6 +154,7 @@
                 });
             }
 
+            // Atualiza os estados (verde / check)
             meals.forEach(meal => {
                 const inputTime = document.getElementById(`time-${meal.id}`);
                 const inputCheck = document.getElementById(`check-${meal.id}`);
@@ -170,7 +176,6 @@
             
             const dataHoje = new Date().toISOString().split('T')[0];
             
-            // Reconstrói a árvore de dados se ela estiver vazia na nuvem
             if (!pet.logs) pet.logs = {};
             if (!pet.logs[dataHoje] || !Array.isArray(pet.logs[dataHoje])) pet.logs[dataHoje] = [];
             let logArray = pet.logs[dataHoje];
