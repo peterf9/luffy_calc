@@ -3,77 +3,41 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Luffy Family App</title>
+    <title>Luffy Family App (Transition)</title>
     <style>
         body {
             font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
-            background-color: #f0f4f8;
-            display: flex;
-            justify-content: center;
-            align-items: center;
-            min-height: 100vh;
-            margin: 0;
-            transition: background-color 0.5s;
+            background-color: #f0f4f8; display: flex; justify-content: center;
+            align-items: center; min-height: 100vh; margin: 0; transition: background-color 0.5s;
         }
         .card {
-            background: white;
-            padding: 1.5rem;
-            border-radius: 20px;
-            box-shadow: 0 10px 25px rgba(0,0,0,0.1);
-            width: 90%;
-            max-width: 400px;
-            text-align: center;
-            border-top: 6px solid #d32f2f;
-            position: relative;
+            background: white; padding: 1.5rem; border-radius: 20px;
+            box-shadow: 0 10px 25px rgba(0,0,0,0.1); width: 90%; max-width: 400px;
+            text-align: center; border-top: 6px solid #d32f2f; position: relative;
         }
-        
         body.feeding-time { background-color: #e8f5e9; }
         body.feeding-time .card { border-top-color: #2e7d32; box-shadow: 0 0 30px rgba(76, 175, 80, 0.4); }
-
-        .banner-aniversario {
-            background: linear-gradient(135deg, #ffeb3b, #ffc107);
-            color: #d32f2f; padding: 10px; border-radius: 10px;
-            font-weight: bold; font-size: 1.1rem; margin-bottom: 15px;
-            box-shadow: 0 4px 10px rgba(255, 193, 7, 0.3);
-            animation: bounceIn 0.8s ease-out; display: none;
-        }
-        @keyframes bounceIn {
-            0% { transform: scale(0.8); opacity: 0; }
-            60% { transform: scale(1.05); opacity: 1; }
-            100% { transform: scale(1); }
-        }
-
         h1 { color: #333; margin: 0; font-size: 1.5rem; letter-spacing: -0.5px; }
         h4 { color: #666; font-weight: normal; margin-top: 5px; margin-bottom: 20px; font-size: 0.9rem; }
-        
         .info-row {
             display: flex; justify-content: space-between; margin-bottom: 10px;
             font-size: 0.9rem; color: #555; background: #f8f9fa;
             padding: 10px; border-radius: 10px; border: 1px solid #eee;
         }
-
-        .dynamic-schedule { margin-top: 10px; display: flex; flex-direction: column; gap: 10px; }
-
         .meal-row {
             display: flex; align-items: center; justify-content: space-between;
             background: #fff; padding: 6px 12px; border: 1px solid #ddd;
-            border-radius: 12px; transition: all 0.3s ease;
+            border-radius: 12px; transition: all 0.3s ease; margin-bottom: 10px;
         }
-
         .meal-row.fed { background-color: #dcedc8; border-color: #8bc34a; opacity: 0.8; }
         .meal-row.fed input[type="time"] { text-decoration: line-through; color: #558b2f; background-color: transparent; border: none; }
-
-        .time-label { font-size: 0.8rem; font-weight: bold; color: #666; width: 30px; }
-        
+        .time-label { font-size: 0.8rem; font-weight: bold; color: #666; width: 80px; text-align: left; }
         input[type="time"] {
             font-family: 'Segoe UI', sans-serif; font-size: 1.1rem; padding: 4px;
             border: 1px solid #eee; border-radius: 6px; background: #f9f9f9; color: #333;
             width: 90px; text-align: center; font-weight: bold; outline: none;
         }
-
-        .check-container { display: flex; align-items: center; gap: 5px; }
         .check-btn { width: 24px; height: 24px; cursor: pointer; accent-color: #2e7d32; transform: scale(1.2); }
-
         .status-bar {
             margin-top: 15px; padding: 10px; background: #333; color: white;
             border-radius: 8px; font-size: 0.9rem; font-weight: bold; min-height: 20px;
@@ -83,9 +47,8 @@
 <body>
 
     <div class="card">
-        <div id="bannerAniversario" class="banner-aniversario"></div>
-        <h1>Luffy Family 🐾</h1>
-        <h4 style="margin-bottom: 10px;">Rotina Fixa: 3 Refeições</h4>
+        <h1 id="petName">Luffy Family 🐾</h1>
+        <h4 style="margin-bottom: 10px;">Modo Sincronizado (Antigravity)</h4>
 
         <div class="info-row">
             <span>Idade:</span> <strong id="idadeDisplay">--</strong>
@@ -93,241 +56,168 @@
         <div class="info-row" style="margin-top:-5px;">
             <span>Meta Hoje:</span> <strong id="totalGrams">-- g</strong>
         </div>
-
-        <div style="text-align: left; margin-bottom: 5px; font-size: 0.8rem; color: #666; margin-top: 15px;">
-            Marque a caixinha ao alimentar:
-        </div>
         
-        <div id="clockContainer" class="dynamic-schedule"></div>
+        <div id="clockContainer"></div>
         <div id="statusBar" class="status-bar">Iniciando...</div>
         <div id="syncStatus" style="font-size: 0.7rem; color: #ccc; margin-top: 10px;"></div>
     </div>
 
     <script>
-        const DATA_NASCIMENTO = new Date(2025, 9, 31); 
+        const BIRTH_DATE = new Date(2025, 9, 31); // 31/10/2025
         const PANTRY_ID = "c42cdca2-f5c9-4b78-b7ba-527236418398"; 
         const BASKET_NAME = "LuffySchedule";
         const API_URL = `https://getpantry.cloud/apiv1/pantry/${PANTRY_ID}/basket/${BASKET_NAME}`;
 
-        // HARDCODE: Fixado para 3 refeições
-        const NUM_REFEICOES = 3;
-        const INTERVALO = 6; 
+        let fullCloudData = {}; // Armazena o JSON completo para não perder dados do Antigravity
+        const PET_ID = "pet_1";
 
-        window.onload = function() {
-            if(document.getElementById('clockContainer').innerHTML === "") {
-                resetarHorarios(false); 
-            }
-            calcularDieta(); 
-            verificarStatusVisual(); 
-
-            carregarDaNuvem(); 
-            setInterval(carregarDaNuvem, 5000); 
-            setInterval(verificarStatusVisual, 60000); 
+        window.onload = () => {
+            calcularDieta();
+            carregarDaNuvem();
+            setInterval(carregarDaNuvem, 5000);
+            setInterval(verificarStatusVisual, 60000);
         };
 
-        function salvarNaNuvem() {
-            const inputsTime = document.querySelectorAll('input[type="time"]');
-            const inputsCheck = document.querySelectorAll('input[type="checkbox"]');
-            
-            const horarios = Array.from(inputsTime).map(i => i.value);
-            const checados = Array.from(inputsCheck).map(i => i.checked);
-            const hoje = new Date().toLocaleDateString(); 
-
-            const dados = { data: hoje, modo: NUM_REFEICOES, times: horarios, checks: checados, autor: "AppUser" };
-            
-            document.getElementById('syncStatus').innerText = "Salvando...";
-            fetch(API_URL, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(dados) })
-            .then(() => {
-                document.getElementById('syncStatus').innerText = "Sincronizado";
-                setTimeout(() => { document.getElementById('syncStatus').innerText = ""; }, 2000);
-            })
-            .catch(err => { document.getElementById('syncStatus').innerText = "Offline"; });
+        async function carregarDaNuvem() {
+            try {
+                const response = await fetch(API_URL);
+                const data = await response.json();
+                fullCloudData = data;
+                aplicarDados(data.pets[PET_ID]);
+            } catch (err) { console.log("Erro na nuvem."); }
         }
 
-        function carregarDaNuvem() {
-            fetch(API_URL).then(res => res.json()).then(dados => {
-                const hoje = new Date().toLocaleDateString();
-                if (dados.data === hoje) aplicarDados(dados);
-            }).catch(err => {});
-        }
+        function aplicarDados(pet) {
+            if (!pet) return;
 
-        function aplicarDados(dados) {
-            // TRAVA DE SEGURANÇA: Se o banco na nuvem ainda tiver o formato antigo de 4 ou 6 refeições, 
-            // forçamos o reset para 3 refeições e sobrescrevemos o banco.
-            if (dados.modo != NUM_REFEICOES) {
-                resetarHorarios(true);
-                return;
-            }
+            const container = document.getElementById('clockContainer');
+            const dataHoje = new Date().toISOString().split('T')[0]; // Formato YYYY-MM-DD
+            const logHoje = pet.logs[dataHoje] || {};
 
-            gerarInputsVisuais();
-            calcularDieta();
-
-            const inputsTime = document.querySelectorAll('input[type="time"]');
-            const inputsCheck = document.querySelectorAll('input[type="checkbox"]');
-            const rows = document.querySelectorAll('.meal-row');
-
-            dados.times.forEach((time, i) => {
-                if (inputsTime[i] && document.activeElement !== inputsTime[i] && inputsTime[i].value !== time) {
-                    inputsTime[i].value = time;
-                }
-            });
-
-            if (dados.checks) {
-                dados.checks.forEach((isChecked, i) => {
-                    if (inputsCheck[i]) {
-                        if (inputsCheck[i].checked !== isChecked) {
-                            inputsCheck[i].checked = isChecked;
-                            if (isChecked) rows[i].classList.add('fed');
-                            else rows[i].classList.remove('fed');
-                        }
-                    }
+            // Renderiza se for a primeira vez ou se a quantidade mudou
+            if (container.children.length === 0) {
+                container.innerHTML = "";
+                pet.schedule.meals.forEach((meal, i) => {
+                    let row = document.createElement('div');
+                    row.className = 'meal-row';
+                    row.id = `row-${meal.id}`;
+                    
+                    row.innerHTML = `
+                        <div class="time-label">${meal.name}</div>
+                        <input type="time" id="time-${meal.id}" value="${meal.time}" onchange="salvarNoCheck()">
+                        <input type="checkbox" id="check-${meal.id}" class="check-btn" onchange="salvarNoCheck()">
+                    `;
+                    container.appendChild(row);
                 });
             }
+
+            // Atualiza status dos campos sem reconstruir a UI (evita piscar)
+            pet.schedule.meals.forEach(meal => {
+                const inputTime = document.getElementById(`time-${meal.id}`);
+                const inputCheck = document.getElementById(`check-${meal.id}`);
+                const row = document.getElementById(`row-${meal.id}`);
+
+                if (document.activeElement !== inputTime) inputTime.value = meal.time;
+                
+                const isChecked = logHoje[meal.id] || false;
+                inputCheck.checked = isChecked;
+                if (isChecked) row.classList.add('fed'); else row.classList.remove('fed');
+            });
+
             verificarStatusVisual();
         }
 
-        function gerarInputsVisuais() {
-            const container = document.getElementById('clockContainer');
-            // Só regera se não tiver a quantidade certa na tela
-            if(container.children.length === NUM_REFEICOES) return; 
-            
-            container.innerHTML = "";
-            for (let i = 0; i < NUM_REFEICOES; i++) {
-                let row = document.createElement('div'); row.className = 'meal-row';
-                let label = document.createElement('div'); label.className = 'time-label'; label.innerText = `#${i+1}`;
+        async function salvarNoCheck() {
+            const dataHoje = new Date().toISOString().split('T')[0];
+            const pet = fullCloudData.pets[PET_ID];
+
+            // Inicializa log do dia se não existir
+            if (!pet.logs[dataHoje]) pet.logs[dataHoje] = {};
+
+            pet.schedule.meals.forEach(meal => {
+                const inputTime = document.getElementById(`time-${meal.id}`);
+                const inputCheck = document.getElementById(`check-${meal.id}`);
                 
-                let input = document.createElement('input'); input.type = 'time'; input.id = `time-${i}`;
-                input.onchange = function() { recalcularCascata(i); salvarNaNuvem(); };
-
-                let checkContainer = document.createElement('div'); checkContainer.className = 'check-container';
-                let check = document.createElement('input'); check.type = 'checkbox'; check.className = 'check-btn'; check.id = `check-${i}`;
-                check.onchange = function() {
-                    if(this.checked) row.classList.add('fed'); else row.classList.remove('fed');
-                    salvarNaNuvem(); verificarStatusVisual();
-                };
-
-                checkContainer.appendChild(check);
-                row.appendChild(label); row.appendChild(input); row.appendChild(checkContainer);
-                container.appendChild(row);
-            }
-        }
-
-        function resetarHorarios(isManualChange) {
-            gerarInputsVisuais();
-            let horaBase = 7; 
-
-            const inputs = document.querySelectorAll('input[type="time"]');
-            inputs.forEach((input, i) => {
-                let h = horaBase + (i * INTERVALO); if (h >= 24) h -= 24;
-                input.value = `${h.toString().padStart(2, '0')}:00`;
+                meal.time = inputTime.value;
+                pet.logs[dataHoje][meal.id] = inputCheck.checked;
             });
 
-            calcularDieta(); verificarStatusVisual();
-            if (isManualChange) salvarNaNuvem();
-        }
-
-        function recalcularCascata(indexMudado) {
-            let inputMudado = document.getElementById(`time-${indexMudado}`);
-            if(!inputMudado.value) return;
-            let [h, m] = inputMudado.value.split(':').map(Number);
-            let minutosBase = (h * 60) + m;
-
-            for (let i = indexMudado + 1; i < NUM_REFEICOES; i++) {
-                let inputProximo = document.getElementById(`time-${i}`);
-                minutosBase += (INTERVALO * 60);
-                let novosMinutos = minutosBase % 1440;
-                let novaHora = Math.floor(novosMinutos / 60); let novoMin = novosMinutos % 60;
-                inputProximo.value = `${novaHora.toString().padStart(2, '0')}:${novoMin.toString().padStart(2, '0')}`;
-            }
+            document.getElementById('syncStatus').innerText = "Sincronizando...";
+            
+            try {
+                await fetch(API_URL, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify(fullCloudData)
+                });
+                document.getElementById('syncStatus').innerText = "Sincronizado com Antigravity";
+                setTimeout(() => { document.getElementById('syncStatus').innerText = ""; }, 2000);
+            } catch (err) { document.getElementById('syncStatus').innerText = "Offline"; }
+            
+            verificarStatusVisual();
         }
 
         function verificarStatusVisual() {
-            const inputsTime = document.querySelectorAll('input[type="time"]');
-            const inputsCheck = document.querySelectorAll('input[type="checkbox"]');
-            if (inputsTime.length !== NUM_REFEICOES || inputsCheck.length !== NUM_REFEICOES) return;
+            const pet = fullCloudData.pets?.[PET_ID];
+            if (!pet) return;
 
             const agora = new Date();
-            const minutosAgora = (agora.getHours() * 60) + agora.getMinutes();
-            let proximaIndex = -1; let encontrouProxima = false; let tudoComido = true;
+            const minAgora = (agora.getHours() * 60) + agora.getMinutes();
+            const dataHoje = agora.toISOString().split('T')[0];
+            const logHoje = pet.logs[dataHoje] || {};
+            
+            let proxima = null;
+            let metaAtingida = true;
 
-            inputsTime.forEach((input, i) => {
-                if (!inputsCheck[i].checked) {
-                    tudoComido = false;
-                    if (!encontrouProxima) {
-                        let [h, m] = input.value.split(':').map(Number);
-                        let minutosRef = (h * 60) + m;
-                        if (minutosAgora < minutosRef + 60) { proximaIndex = i; encontrouProxima = true; }
-                    }
+            pet.schedule.meals.forEach(meal => {
+                if (!logHoje[meal.id]) {
+                    metaAtingida = false;
+                    const [h, m] = meal.time.split(':').map(Number);
+                    const minMeal = (h * 60) + m;
+                    if (!proxima && minAgora < minMeal + 60) proxima = meal;
                 }
             });
 
-            const statusBar = document.getElementById('statusBar');
-            if (tudoComido) {
+            const bar = document.getElementById('statusBar');
+            if (metaAtingida) {
                 document.body.classList.remove('feeding-time');
-                statusBar.innerText = "✅ Meta do dia atingida!"; return;
-            }
-
-            if (proximaIndex !== -1) {
-                const horaProx = inputsTime[proximaIndex].value;
-                let [h, m] = horaProx.split(':').map(Number);
-                let minutosRef = (h * 60) + m;
-                
-                if (minutosAgora >= (minutosRef - 15) && minutosAgora <= (minutosRef + 30)) {
+                bar.innerText = "✅ Meta atingida!";
+            } else if (proxima) {
+                const [h, m] = proxima.time.split(':').map(Number);
+                const minMeal = (h * 60) + m;
+                if (minAgora >= minMeal - 15 && minAgora <= minMeal + 30) {
                     document.body.classList.add('feeding-time');
-                    statusBar.innerText = `🍖 HORA DE COMER! (${horaProx})`;
+                    bar.innerText = `🍖 HORA DE COMER! (${proxima.time})`;
                 } else {
                     document.body.classList.remove('feeding-time');
-                    let diff = minutosRef - minutosAgora; if (diff < 0) diff += 1440;
-                    let horasFalta = Math.floor(diff / 60); let minFalta = diff % 60;
-                    if (horasFalta > 0) statusBar.innerText = `⏳ Próxima: ${horaProx} (falta ${horasFalta}h ${minFalta}m)`;
-                    else statusBar.innerText = `⏳ Próxima: ${horaProx} (falta ${minFalta} min)`;
+                    bar.innerText = `⏳ Próxima: ${proxima.time}`;
                 }
-            } else { statusBar.innerText = "Aguardando próximo dia..."; }
+            }
         }
 
         function calcularDieta() {
-            const hoje = new Date(); hoje.setHours(0,0,0,0); 
+            const hoje = new Date(); 
+            const diffTime = Math.abs(hoje - BIRTH_DATE);
+            const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
             
-            let meses = (hoje.getFullYear() - DATA_NASCIMENTO.getFullYear()) * 12;
-            meses -= DATA_NASCIMENTO.getMonth(); meses += hoje.getMonth();
-            let diasExtras = hoje.getDate() - DATA_NASCIMENTO.getDate();
-            if (diasExtras < 0) {
-                meses--; let ultimoDiaMesAnterior = new Date(hoje.getFullYear(), hoje.getMonth(), 0).getDate();
-                diasExtras += ultimoDiaMesAnterior;
-            }
+            const meses = Math.floor(diffDays / 30.44);
+            const diasExtras = Math.floor(diffDays % 30.44);
+            
             document.getElementById('idadeDisplay').innerText = `${meses} meses, ${diasExtras} dias`;
 
-            let mesesCompletos = (hoje.getFullYear() - DATA_NASCIMENTO.getFullYear()) * 12 + (hoje.getMonth() - DATA_NASCIMENTO.getMonth());
-            const diaHoje = hoje.getDate(); const diaNasc = DATA_NASCIMENTO.getDate();
-            const ultimoDiaMes = new Date(hoje.getFullYear(), hoje.getMonth() + 1, 0).getDate();
-            
-            let ehMesversario = false;
-            if (mesesCompletos > 0 && mesesCompletos <= 12) {
-                if (diaHoje === diaNasc) ehMesversario = true;
-                else if (diaNasc > ultimoDiaMes && diaHoje === ultimoDiaMes) ehMesversario = true;
-            }
-
-            const banner = document.getElementById('bannerAniversario');
-            if (ehMesversario) {
-                banner.style.display = 'block';
-                if (mesesCompletos === 12) banner.innerHTML = "🎉 Hoje o Luffy faz 1 ANO de vida! 🎂🐶";
-                else banner.innerHTML = `🎉 Hoje o Luffy completa ${mesesCompletos} meses! 🎂🐾`;
-            } else {
-                banner.style.display = 'none';
-            }
-
-            // A matriz correta de 60-65kg
+            // Tabela 701g (Alvo 60-65kg)
             const tabela = { 2: 410, 3: 539, 4: 594, 5: 660, 6: 709, 7: 760, 8: 800 };
             let totalDiario = 0;
-            if (meses < 2) totalDiario = 350 + (diasExtras * 3); 
+            if (meses < 2) totalDiario = 350; 
             else if (meses >= 8) totalDiario = 800;
             else {
-                const baseAtual = tabela[meses]; const baseProxima = tabela[meses + 1] || baseAtual;
-                totalDiario = baseAtual + ((baseProxima - baseAtual) / 30 * diasExtras);
+                const bA = tabela[meses];
+                const bP = tabela[meses + 1] || bA;
+                totalDiario = bA + ((bP - bA) / 30 * diasExtras);
             }
             
-            const totalFinal = Math.round(totalDiario);
-            document.getElementById('totalGrams').innerText = totalFinal + " g (~" + Math.round(totalFinal/NUM_REFEICOES) + "g por vez)";
+            const total = Math.round(totalDiario);
+            document.getElementById('totalGrams').innerText = `${total} g (~${Math.round(total/3)}g/pote)`;
         }
     </script>
 </body>
