@@ -17,27 +17,45 @@
         }
         body.feeding-time { background-color: #e8f5e9; }
         body.feeding-time .card { border-top-color: #2e7d32; box-shadow: 0 0 30px rgba(76, 175, 80, 0.4); }
+        
         h1 { color: #333; margin: 0; font-size: 1.5rem; letter-spacing: -0.5px; }
-        h4 { color: #666; font-weight: normal; margin-top: 5px; margin-bottom: 20px; font-size: 0.9rem; }
+        h4 { color: #666; font-weight: normal; margin-top: 5px; margin-bottom: 15px; font-size: 0.9rem; }
+        
+        /* PAINEL DE GAMIFICAÇÃO */
+        .gami-header {
+            display: flex; justify-content: space-around; background: #fff8e1;
+            padding: 10px; border-radius: 12px; margin-bottom: 15px; border: 1px solid #ffecb3;
+            font-weight: bold; color: #f57c00; font-size: 0.95rem;
+            box-shadow: inset 0 2px 5px rgba(0,0,0,0.05);
+        }
+        .gami-item { display: flex; align-items: center; gap: 5px; }
+
         .info-row {
             display: flex; justify-content: space-between; margin-bottom: 10px;
             font-size: 0.9rem; color: #555; background: #f8f9fa;
             padding: 10px; border-radius: 10px; border: 1px solid #eee;
         }
+        
+        .section-title {
+            text-align: left; margin-bottom: 5px; font-size: 0.85rem; font-weight: bold; color: #444; margin-top: 20px; border-bottom: 2px solid #eee; padding-bottom: 3px;
+        }
+
         .meal-row {
             display: flex; align-items: center; justify-content: space-between;
             background: #fff; padding: 6px 12px; border: 1px solid #ddd;
-            border-radius: 12px; transition: all 0.3s ease; margin-bottom: 10px;
+            border-radius: 12px; transition: all 0.3s ease; margin-bottom: 8px;
         }
         .meal-row.fed { background-color: #dcedc8; border-color: #8bc34a; opacity: 0.8; }
         .meal-row.fed input[type="time"] { text-decoration: line-through; color: #558b2f; background-color: transparent; border: none; }
-        .time-label { font-size: 0.8rem; font-weight: bold; color: #666; width: 80px; text-align: left; }
+        .time-label { font-size: 0.85rem; font-weight: bold; color: #555; width: 90px; text-align: left; }
+        
         input[type="time"] {
             font-family: 'Segoe UI', sans-serif; font-size: 1.1rem; padding: 4px;
             border: 1px solid #eee; border-radius: 6px; background: #f9f9f9; color: #333;
             width: 90px; text-align: center; font-weight: bold; outline: none;
         }
         .check-btn { width: 24px; height: 24px; cursor: pointer; accent-color: #2e7d32; transform: scale(1.2); }
+        
         .status-bar {
             margin-top: 15px; padding: 10px; background: #333; color: white;
             border-radius: 8px; font-size: 0.9rem; font-weight: bold; min-height: 20px;
@@ -45,6 +63,7 @@
         #debugPanel {
             margin-top: 15px; padding: 10px; background: #e3f2fd; border-radius: 8px;
             font-size: 0.7rem; color: #1565c0; text-align: left; word-break: break-all;
+            display: none; /* Escondido para a família, mude para 'block' se precisar debugar */
         }
     </style>
 </head>
@@ -52,7 +71,13 @@
 
     <div class="card">
         <h1 id="petName">Buscando... 🐾</h1>
-        <h4 style="margin-bottom: 10px;">Painel de Controle</h4>
+        <h4 style="margin-bottom: 10px;">Painel da Família</h4>
+
+        <div class="gami-header">
+            <div class="gami-item">🌟 Lvl <span id="lvlDisplay">--</span></div>
+            <div class="gami-item">✨ <span id="xpDisplay">--</span> XP</div>
+            <div class="gami-item">🪙 <span id="coinDisplay">--</span></div>
+        </div>
 
         <div class="info-row">
             <span>Idade:</span> <strong id="idadeDisplay">--</strong>
@@ -61,7 +86,21 @@
             <span>Meta Hoje:</span> <strong id="totalGrams">-- g</strong>
         </div>
         
-        <div id="clockContainer" style="margin-top: 15px;"></div>
+        <div class="section-title">🍖 Refeições</div>
+        <div id="clockContainer"></div>
+
+        <div class="section-title">🎯 Missões Diárias</div>
+        <div id="tasksContainer">
+            <div class="meal-row" id="row-walk">
+                <div class="time-label">🦮 Passeio</div>
+                <input type="checkbox" id="check-walk" class="check-btn" onchange="salvarTarefa('walk')">
+            </div>
+            <div class="meal-row" id="row-water">
+                <div class="time-label">💧 Água Fresca</div>
+                <input type="checkbox" id="check-water" class="check-btn" onchange="salvarTarefa('water')">
+            </div>
+        </div>
+
         <div id="statusBar" class="status-bar">Conectando à nuvem...</div>
         <div id="syncStatus" style="font-size: 0.7rem; color: #ccc; margin-top: 10px;"></div>
         
@@ -70,7 +109,7 @@
 
     <script>
         const PANTRY_ID = "c42cdca2-f5c9-4b78-b7ba-527236418398"; 
-        const BASKET_NAME = "bello_app_state"; // <-- SE MUDOU O NOME DA BASE, ALTERE AQUI
+        const BASKET_NAME = "bello_app_state"; 
         const API_URL = `https://getpantry.cloud/apiv1/pantry/${PANTRY_ID}/basket/${BASKET_NAME}`;
 
         let fullCloudData = {}; 
@@ -84,7 +123,6 @@
 
         async function carregarDaNuvem() {
             try {
-                // TRUQUE ANTI-CACHE: Adiciona o timestamp na URL para forçar o download do arquivo novo
                 const urlSemCache = API_URL + "?t=" + new Date().getTime();
                 const response = await fetch(urlSemCache, { cache: "no-store" });
                 const data = await response.json();
@@ -93,52 +131,56 @@
                 activePetId = data.activePetId;
                 const pet = data.pets?.[activePetId];
                 
-                // Debug na tela para você ver que a nuvem conectou certo
-                document.getElementById('debugPanel').innerText = `✅ Nuvem Conectada!\nID: ${activePetId || 'Vazio'}\nPet Encontrado: ${pet?.petInfo?.name || 'Não'}`;
+                document.getElementById('debugPanel').innerText = `✅ Conectado | ID: ${activePetId}`;
 
                 if (pet) aplicarDados(pet);
                 
             } catch (err) { 
-                document.getElementById('debugPanel').innerText = `❌ Falha ao conectar: ${err.message}`;
+                document.getElementById('debugPanel').innerText = `❌ Falha: ${err.message}`;
             }
         }
 
         function aplicarDados(pet) {
-            // 1. Atualiza Textos
-            const name = pet?.petInfo?.name || "Pet";
-            const totalGrams = pet?.schedule?.totalGrams || 0;
-            const gramsPerMeal = pet?.schedule?.gramsPerMeal || 0;
-
-            document.getElementById('petName').innerText = `${name} Family 🐾`;
-            document.getElementById('totalGrams').innerText = `${totalGrams} g (~${gramsPerMeal}g/pote)`;
+            // 1. Atualiza Textos Básicos
+            document.getElementById('petName').innerText = `${pet?.petInfo?.name || "Pet"} Family 🐾`;
+            document.getElementById('totalGrams').innerText = `${pet?.schedule?.totalGrams || 0} g (~${pet?.schedule?.gramsPerMeal || 0}g/pote)`;
             
-            // 2. Cálculo de Idade blindado contra bug de fuso horário
-            const dataNascimentoString = pet?.petInfo?.birthDate; // "2025-10-31"
+            // 2. Atualiza Gamificação Visual
+            const gami = pet?.gamification || {};
+            document.getElementById('lvlDisplay').innerText = gami.level || 1;
+            document.getElementById('xpDisplay').innerText = gami.xp || 0;
+            document.getElementById('coinDisplay').innerText = gami.patacoins || 0;
+
+            // 3. Atualiza Checks das Tarefas
+            const tasks = gami.dailyTasks || {};
+            ['walk', 'water'].forEach(task => {
+                const checkEl = document.getElementById(`check-${task}`);
+                const rowEl = document.getElementById(`row-${task}`);
+                if (checkEl) {
+                    checkEl.checked = tasks[task] || false;
+                    if (tasks[task]) rowEl.classList.add('fed'); else rowEl.classList.remove('fed');
+                }
+            });
+            
+            // 4. Idade
+            const dataNascimentoString = pet?.petInfo?.birthDate; 
             if (dataNascimentoString && dataNascimentoString.includes("-")) {
                 const partes = dataNascimentoString.split("-");
-                const anoNasc = parseInt(partes[0]);
-                const mesNasc = parseInt(partes[1]) - 1; // Mês no JS começa em 0
-                const diaNasc = parseInt(partes[2]);
-                
-                const birth = new Date(anoNasc, mesNasc, diaNasc);
+                const birth = new Date(parseInt(partes[0]), parseInt(partes[1]) - 1, parseInt(partes[2]));
                 const hoje = new Date();
-                
                 let meses = (hoje.getFullYear() - birth.getFullYear()) * 12 + (hoje.getMonth() - birth.getMonth());
                 let dias = hoje.getDate() - birth.getDate();
                 if (dias < 0) { meses--; dias += 30; }
-                
                 document.getElementById('idadeDisplay').innerText = `${meses} meses, ${dias} dias`;
             }
 
-            // 3. Extrai logs de hoje com fallback
+            // 5. Refeições
             const dataHoje = new Date().toISOString().split('T')[0];
-            const logsNode = pet?.logs || {};
-            const logHoje = Array.isArray(logsNode[dataHoje]) ? logsNode[dataHoje] : [];
+            const logHoje = Array.isArray(pet?.logs?.[dataHoje]) ? pet.logs[dataHoje] : [];
             const meals = pet?.schedule?.meals || [];
 
             const container = document.getElementById('clockContainer');
 
-            // Constrói HTML dos horários
             if (container.children.length !== meals.length) {
                 container.innerHTML = "";
                 meals.forEach(meal => {
@@ -147,14 +189,13 @@
                     row.id = `row-${meal.id}`;
                     row.innerHTML = `
                         <div class="time-label">${meal.name || 'Refeição'} <br><small style="font-size:0.65rem; color:#999;">${meal.grams || 0}g</small></div>
-                        <input type="time" id="time-${meal.id}" value="${meal.time || '00:00'}" onchange="salvarInteracao('${meal.id}')">
-                        <input type="checkbox" id="check-${meal.id}" class="check-btn" onchange="salvarInteracao('${meal.id}')">
+                        <input type="time" id="time-${meal.id}" value="${meal.time || '00:00'}" onchange="salvarRefeicao('${meal.id}')">
+                        <input type="checkbox" id="check-${meal.id}" class="check-btn" onchange="salvarRefeicao('${meal.id}')">
                     `;
                     container.appendChild(row);
                 });
             }
 
-            // Atualiza os estados (verde / check)
             meals.forEach(meal => {
                 const inputTime = document.getElementById(`time-${meal.id}`);
                 const inputCheck = document.getElementById(`check-${meal.id}`);
@@ -170,14 +211,13 @@
             verificarStatusVisual();
         }
 
-        async function salvarInteracao(mealId) {
+        async function salvarRefeicao(mealId) {
             const pet = fullCloudData?.pets?.[activePetId];
             if (!pet) return;
             
             const dataHoje = new Date().toISOString().split('T')[0];
-            
             if (!pet.logs) pet.logs = {};
-            if (!pet.logs[dataHoje] || !Array.isArray(pet.logs[dataHoje])) pet.logs[dataHoje] = [];
+            if (!Array.isArray(pet.logs[dataHoje])) pet.logs[dataHoje] = [];
             let logArray = pet.logs[dataHoje];
 
             const inputTime = document.getElementById(`time-${mealId}`).value;
@@ -196,19 +236,34 @@
                 logArray.splice(logIndex, 1);
             }
 
-            document.getElementById('syncStatus').innerText = "Enviando ao Antigravity...";
-            
+            sincronizarComBackend();
+            verificarStatusVisual();
+        }
+
+        async function salvarTarefa(taskId) {
+            const pet = fullCloudData?.pets?.[activePetId];
+            if (!pet) return;
+
+            if (!pet.gamification) pet.gamification = {};
+            if (!pet.gamification.dailyTasks) pet.gamification.dailyTasks = {};
+
+            const isChecked = document.getElementById(`check-${taskId}`).checked;
+            pet.gamification.dailyTasks[taskId] = isChecked;
+
+            sincronizarComBackend();
+        }
+
+        async function sincronizarComBackend() {
+            document.getElementById('syncStatus').innerText = "Sincronizando missão...";
             try {
                 await fetch(API_URL, {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
                     body: JSON.stringify(fullCloudData)
                 });
-                document.getElementById('syncStatus').innerText = "Sincronizado";
+                document.getElementById('syncStatus').innerText = "Sincronizado! 🚀";
                 setTimeout(() => { document.getElementById('syncStatus').innerText = ""; }, 2000);
             } catch (err) { document.getElementById('syncStatus').innerText = "Offline"; }
-            
-            verificarStatusVisual();
         }
 
         function verificarStatusVisual() {
@@ -218,8 +273,7 @@
             const agora = new Date();
             const minAgora = (agora.getHours() * 60) + agora.getMinutes();
             const dataHoje = agora.toISOString().split('T')[0];
-            const logsNode = pet?.logs || {};
-            const logHoje = Array.isArray(logsNode[dataHoje]) ? logsNode[dataHoje] : [];
+            const logHoje = Array.isArray(pet?.logs?.[dataHoje]) ? pet.logs[dataHoje] : [];
             const meals = pet?.schedule?.meals || [];
             
             let proxima = null;
