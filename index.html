@@ -45,15 +45,24 @@
             border-radius: 12px; transition: all 0.3s ease; margin-bottom: 8px;
         }
         .meal-row.fed { background-color: #dcedc8; border-color: #8bc34a; opacity: 0.8; }
-        .meal-row.fed input[type="time"] { text-decoration: line-through; color: #558b2f; background-color: transparent; border: none; }
+        
+        /* Ajuste do Relógio Planejado VS Realizado */
+        .meal-row.fed input[type="time"] { 
+            text-decoration: line-through; 
+            color: #9e9e9e; /* Cinza claro para mostrar que já passou */
+            background-color: transparent; border: none; width: 60px; padding: 0;
+        }
+        .completed-label { display: none; color: #2e7d32; font-weight: bold; font-size: 0.95rem; margin-left: 5px;}
+        .meal-row.fed .completed-label { display: inline; }
+
         .time-label { font-size: 0.85rem; font-weight: bold; color: #555; width: 90px; text-align: left; }
         
         input[type="time"] {
             font-family: 'Segoe UI', sans-serif; font-size: 1.1rem; padding: 4px;
             border: 1px solid #eee; border-radius: 6px; background: #f9f9f9; color: #333;
-            width: 90px; text-align: center; font-weight: bold; outline: none;
+            width: 90px; text-align: center; font-weight: bold; outline: none; transition: width 0.3s;
         }
-        .check-btn { width: 24px; height: 24px; cursor: pointer; accent-color: #2e7d32; transform: scale(1.2); }
+        .check-btn { width: 24px; height: 24px; cursor: pointer; accent-color: #2e7d32; transform: scale(1.2); margin-left: 5px; }
         
         .status-bar {
             margin-top: 15px; padding: 10px; background: #333; color: white;
@@ -109,7 +118,6 @@
         let fullCloudData = {}; 
         let activePetId = "";
 
-        // FUNÇÃO MOTOR: Blinda o fuso horário para o Brasil
         function getDataLocal() {
             const d = new Date();
             return d.getFullYear() + '-' + 
@@ -167,7 +175,6 @@
                 document.getElementById('idadeDisplay').innerText = `${meses} meses, ${dias} dias`;
             }
 
-            // CORREÇÃO CRÍTICA: Lendo o log do fuso horário correto
             const dataHoje = getDataLocal();
             const logHoje = Array.isArray(pet?.logs?.[dataHoje]) ? pet.logs[dataHoje] : [];
             const meals = pet?.schedule?.meals || [];
@@ -180,9 +187,14 @@
                     let row = document.createElement('div');
                     row.className = 'meal-row';
                     row.id = `row-${meal.id}`;
+                    
+                    // NOVA ARQUITETURA DA DIV DO RELÓGIO
                     row.innerHTML = `
                         <div class="time-label">${meal.name || 'Refeição'} <br><small style="font-size:0.65rem; color:#999;">${meal.grams || 0}g</small></div>
-                        <input type="time" id="time-${meal.id}" value="${meal.time || '00:00'}" onchange="salvarRefeicao('${meal.id}')">
+                        <div style="display:flex; align-items:center;">
+                            <input type="time" id="time-${meal.id}" value="${meal.time || '00:00'}" onchange="salvarRefeicao('${meal.id}')">
+                            <span id="completed-time-${meal.id}" class="completed-label"></span>
+                        </div>
                         <input type="checkbox" id="check-${meal.id}" class="check-btn" onchange="salvarRefeicao('${meal.id}')">
                     `;
                     container.appendChild(row);
@@ -193,12 +205,20 @@
                 const inputTime = document.getElementById(`time-${meal.id}`);
                 const inputCheck = document.getElementById(`check-${meal.id}`);
                 const row = document.getElementById(`row-${meal.id}`);
+                const completedSpan = document.getElementById(`completed-time-${meal.id}`);
 
                 if (inputTime && document.activeElement !== inputTime) inputTime.value = meal.time || '00:00';
                 
-                const isChecked = logHoje.some(log => log.id === meal.id);
+                const logEntry = logHoje.find(log => log.id === meal.id);
+                const isChecked = !!logEntry;
+                
                 if (inputCheck) inputCheck.checked = isChecked;
-                if (isChecked) row.classList.add('fed'); else row.classList.remove('fed');
+                if (isChecked) {
+                    row.classList.add('fed');
+                    if(completedSpan) completedSpan.innerText = `✅ ${logEntry.completedAt}`;
+                } else {
+                    row.classList.remove('fed');
+                }
             });
 
             verificarStatusVisual();
@@ -229,8 +249,9 @@
                 logArray.splice(logIndex, 1);
             }
 
+            // Chama a atualização visual IMEDIATAMENTE antes de enviar pra nuvem (dá a sensação de App instantâneo)
+            aplicarDados(pet);
             sincronizarComBackend();
-            verificarStatusVisual();
         }
 
         async function salvarTarefa(taskId) {
@@ -248,6 +269,10 @@
 
         async function sincronizarComBackend() {
             document.getElementById('syncStatus').innerText = "Sincronizando missão...";
+            
+            // Tagueamos que foi o App "Thin Client" que atualizou a base
+            fullCloudData.lastUpdatedAt = new Date().getTime();
+
             try {
                 await fetch(API_URL, {
                     method: 'POST',
