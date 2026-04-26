@@ -21,7 +21,6 @@
         h1 { color: #333; margin: 0; font-size: 1.5rem; letter-spacing: -0.5px; }
         h4 { color: #666; font-weight: normal; margin-top: 5px; margin-bottom: 15px; font-size: 0.9rem; }
         
-        /* PAINEL DE GAMIFICAÇÃO */
         .gami-header {
             display: flex; justify-content: space-around; background: #fff8e1;
             padding: 10px; border-radius: 12px; margin-bottom: 15px; border: 1px solid #ffecb3;
@@ -60,11 +59,7 @@
             margin-top: 15px; padding: 10px; background: #333; color: white;
             border-radius: 8px; font-size: 0.9rem; font-weight: bold; min-height: 20px;
         }
-        #debugPanel {
-            margin-top: 15px; padding: 10px; background: #e3f2fd; border-radius: 8px;
-            font-size: 0.7rem; color: #1565c0; text-align: left; word-break: break-all;
-            display: none; /* Escondido para a família, mude para 'block' se precisar debugar */
-        }
+        #debugPanel { display: none; }
     </style>
 </head>
 <body>
@@ -103,8 +98,7 @@
 
         <div id="statusBar" class="status-bar">Conectando à nuvem...</div>
         <div id="syncStatus" style="font-size: 0.7rem; color: #ccc; margin-top: 10px;"></div>
-        
-        <div id="debugPanel">Lendo dados do Servidor...</div>
+        <div id="debugPanel"></div>
     </div>
 
     <script>
@@ -114,6 +108,14 @@
 
         let fullCloudData = {}; 
         let activePetId = "";
+
+        // FUNÇÃO MOTOR: Blinda o fuso horário para o Brasil
+        function getDataLocal() {
+            const d = new Date();
+            return d.getFullYear() + '-' + 
+                   String(d.getMonth() + 1).padStart(2, '0') + '-' + 
+                   String(d.getDate()).padStart(2, '0');
+        }
 
         window.onload = () => {
             carregarDaNuvem();
@@ -131,27 +133,19 @@
                 activePetId = data.activePetId;
                 const pet = data.pets?.[activePetId];
                 
-                document.getElementById('debugPanel').innerText = `✅ Conectado | ID: ${activePetId}`;
-
                 if (pet) aplicarDados(pet);
-                
-            } catch (err) { 
-                document.getElementById('debugPanel').innerText = `❌ Falha: ${err.message}`;
-            }
+            } catch (err) { console.error("Falha na nuvem", err); }
         }
 
         function aplicarDados(pet) {
-            // 1. Atualiza Textos Básicos
             document.getElementById('petName').innerText = `${pet?.petInfo?.name || "Pet"} Family 🐾`;
             document.getElementById('totalGrams').innerText = `${pet?.schedule?.totalGrams || 0} g (~${pet?.schedule?.gramsPerMeal || 0}g/pote)`;
             
-            // 2. Atualiza Gamificação Visual
             const gami = pet?.gamification || {};
             document.getElementById('lvlDisplay').innerText = gami.level || 1;
             document.getElementById('xpDisplay').innerText = gami.xp || 0;
             document.getElementById('coinDisplay').innerText = gami.patacoins || 0;
 
-            // 3. Atualiza Checks das Tarefas
             const tasks = gami.dailyTasks || {};
             ['walk', 'water'].forEach(task => {
                 const checkEl = document.getElementById(`check-${task}`);
@@ -162,7 +156,6 @@
                 }
             });
             
-            // 4. Idade
             const dataNascimentoString = pet?.petInfo?.birthDate; 
             if (dataNascimentoString && dataNascimentoString.includes("-")) {
                 const partes = dataNascimentoString.split("-");
@@ -174,8 +167,8 @@
                 document.getElementById('idadeDisplay').innerText = `${meses} meses, ${dias} dias`;
             }
 
-            // 5. Refeições
-            const dataHoje = new Date().toISOString().split('T')[0];
+            // CORREÇÃO CRÍTICA: Lendo o log do fuso horário correto
+            const dataHoje = getDataLocal();
             const logHoje = Array.isArray(pet?.logs?.[dataHoje]) ? pet.logs[dataHoje] : [];
             const meals = pet?.schedule?.meals || [];
 
@@ -215,7 +208,7 @@
             const pet = fullCloudData?.pets?.[activePetId];
             if (!pet) return;
             
-            const dataHoje = new Date().toISOString().split('T')[0];
+            const dataHoje = getDataLocal();
             if (!pet.logs) pet.logs = {};
             if (!Array.isArray(pet.logs[dataHoje])) pet.logs[dataHoje] = [];
             let logArray = pet.logs[dataHoje];
@@ -272,7 +265,7 @@
 
             const agora = new Date();
             const minAgora = (agora.getHours() * 60) + agora.getMinutes();
-            const dataHoje = agora.toISOString().split('T')[0];
+            const dataHoje = getDataLocal();
             const logHoje = Array.isArray(pet?.logs?.[dataHoje]) ? pet.logs[dataHoje] : [];
             const meals = pet?.schedule?.meals || [];
             
