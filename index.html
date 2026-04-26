@@ -46,23 +46,33 @@
         }
         .meal-row.fed { background-color: #dcedc8; border-color: #8bc34a; opacity: 0.8; }
         
-        /* Ajuste do Relógio Planejado VS Realizado */
+        /* Ajuste Físico para evitar sobreposição */
+        .time-wrapper {
+            display: flex; 
+            align-items: center; 
+            justify-content: flex-end; 
+            flex-grow: 1; 
+            gap: 15px; /* Força espaço entre os horários */
+            padding-right: 10px;
+        }
+
         .meal-row.fed input[type="time"] { 
             text-decoration: line-through; 
             color: #9e9e9e; 
             background-color: transparent; 
             border: none; 
-            width: 65px; /* Largura um pouco maior para não encavalar */
+            width: 50px; /* Reduz drasticamente a "caixa" do input mobile */
             padding: 0;
-            margin-right: 8px; /* Distância exata para o horário verde */
-            pointer-events: none; /* Bloqueia o teclado numérico após dar o check */
+            margin: 0;
+            pointer-events: none; 
         }
+        
         .completed-label { 
             display: none; 
             color: #2e7d32; 
             font-weight: bold; 
             font-size: 0.95rem; 
-            white-space: nowrap; /* Não deixa o texto quebrar de linha */
+            white-space: nowrap; 
         }
         .meal-row.fed .completed-label { display: inline; }
 
@@ -201,7 +211,7 @@
                     
                     row.innerHTML = `
                         <div class="time-label">${meal.name || 'Refeição'} <br><small style="font-size:0.65rem; color:#999;">${meal.grams || 0}g</small></div>
-                        <div style="display:flex; align-items:center; justify-content: flex-end; flex-grow: 1; padding-right: 5px;">
+                        <div class="time-wrapper">
                             <input type="time" id="time-${meal.id}" value="${meal.time || '00:00'}" onchange="salvarRefeicao('${meal.id}')">
                             <span id="completed-time-${meal.id}" class="completed-label"></span>
                         </div>
@@ -277,7 +287,7 @@
         }
 
         async function sincronizarComBackend() {
-            document.getElementById('syncStatus').innerText = "Sincronizando missão...";
+            document.getElementById('syncStatus').innerText = "Sincronizando...";
             
             fullCloudData.lastUpdatedAt = new Date().getTime();
 
